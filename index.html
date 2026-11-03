@@ -138,6 +138,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .hardbtn small{font-size:12px;color:var(--muted);font-weight:700}
 .hardbox{text-align:center;background:var(--panel);border-radius:10px;padding:10px;font-size:14px}
 .twist{display:inline-block;background:var(--gold);color:var(--ink);border-radius:6px;font-size:11px;font-weight:900;padding:1px 6px;margin-right:6px;vertical-align:2px}
+.more summary{cursor:pointer;color:var(--muted);font-size:13px;padding:10px 0;min-height:24px}.more[open] summary{margin-bottom:8px}
 .ach,.zukan{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .ach div,.zukan div{background:var(--panel);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;font-size:13px;line-height:1.4;opacity:.6}
 .ach div.got,.zukan div:not(.no){opacity:1}
@@ -331,7 +332,7 @@ function home(){
   const maxAbs=Math.max(10,...week.map(w=>w.r?Math.abs(w.r.pct):0));
   const first=!REC.plays&&!REC.cur,st=streak();
   $("screen").innerHTML=`
-    <p class="lead center">会社のニュースを見て<br>株が<span class="u">上がる</span>か<span class="d">下がる</span>かを決めよう。<br>今日の5本で、100万円をどこまで増やせる？</p>
+    ${first?`<p class="lead center">会社のニュースを見て<br>株が<span class="u">上がる</span>か<span class="d">下がる</span>かを決めよう。<br>今日の5本で<br>100万円をどこまで増やせる？</p>`:""}
     ${CHAL?`<div class="dare"><b>📨 挑戦状が届いています</b><small>同じ5本で勝負${CHAL.p!=null?`。相手は ${CHAL.p>=0?"+":""}${CHAL.p}%`:""}</small><button class="main" id="chal">挑戦を受ける</button></div>`:""}
     ${first?`<div class="intro" aria-label="遊び方"><div><i>📰</i>ニュースを<br>読む</div><div><i>⚖️</i>買う・売るを<br>決める</div><div><i>💰</i>当たれば<br>増える</div></div>`:""}
     ${today?`<div class="share">今日の結果\n${shown(today.text)}</div><p class="next">次の5本まで あと <b id="nextin">${untilNext()}</b></p>`:""}
@@ -360,7 +361,9 @@ function collection(){
   sync();const a=achs(),seen=Object.keys(REC.seen).length,tw=REC.tw[0]?Math.round(REC.tw[1]/REC.tw[0]*100)+"%":"-";
   $("screen").innerHTML=`<div class="col">
     <p class="sec">実績（${a.filter(x=>x.got).length}/${a.length}）</p>
-    <div class="ach">${a.map(x=>`<div class="${x.got?"got":""}"><i>${x.got?x.e:"🔒"}</i><b>${x.n}</b><small>${x.d}</small>${x.got?"":`<span class="bar"><span style="width:${Math.round(x.v/x.g*100)}%"></span></span><small>${x.v}/${x.g}</small>`}</div>`).join("")}</div>
+    ${(()=>{const card=x=>`<div class="${x.got?"got":""}"><i>${x.got?x.e:"🔒"}</i><b>${x.n}</b><small>${x.d}</small>${x.got?"":`<span class="bar"><span style="width:${Math.round(x.v/x.g*100)}%"></span></span><small>${x.v}/${x.g}</small>`}</div>`;
+      const got=a.filter(x=>x.got),rest=a.filter(x=>!x.got).sort((p,q)=>q.v/q.g-p.v/p.g),near=rest.slice(0,4),far=rest.slice(4);
+      return `<div class="ach">${[...got,...near].map(card).join("")}</div>${far.length?`<details class="more"><summary>ほかの実績（あと${far.length}個）</summary><div class="ach">${far.map(card).join("")}</div></details>`:""}`})()}
     <p class="sec">腕前</p>
     <div class="stats"><div><b>${tw}</b><small>ひねった問題の的中率</small></div><div><b>${maxStreak()}</b><small>最長の連続日数</small></div>
       <div><b>${REC.hbest?man(REC.hbest).replace("万円",""):"-"}</b><small>上級の最高(万円)</small></div><div><b>${seen}/${EVENTS.length}</b><small>読んだニュース</small></div></div>
