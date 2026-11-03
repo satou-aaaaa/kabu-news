@@ -533,7 +533,8 @@ function end(){
   if($("dare")){const u=dareUrl(G.list,pct);$("dare").dataset.url=u;$("dare").onclick=()=>{const t=`株ニュース5本勝負の挑戦状\nわたしは ${pct>=0?"+":""}${pct}%。同じ5本で勝てる？\n${u}`;if(navigator.share)navigator.share({text:t}).catch(()=>{});else copy(t)}}$("tohome").onclick=home;if($("hard"))$("hard").onclick=()=>start("hard");
 }
 // 肩書きが上がった・今週のミッションがそろった知らせ
-function growRow(tUp,wDone){return (tUp?`<div class="newach" role="status"><div><i>${tUp.e}</i><span><small>肩書きが上がった</small><b>${tUp.n}</b></span></div>${tUp.n==="駆け出し"?`<div><i>⛓️</i><span><small>新しい遊び方が開いた</small><b>連続的中チャレンジ</b></span></div>`:""}</div>`:"")+
+function growRow(tUp,wDone){const t=title(),w=wk(),ms=missions(),done=ms.filter(m=>(w.v[m[0]]||0)>=m[3]).length;
+  return `<p class="sub growline">${t.e} ${t.n}${t.next?`・次の「${t.next[2]}」まで あと${t.next[0]-REC.xp}本`:""}<br>今週のミッション ${done}/3${ms.filter(m=>(w.v[m[0]]||0)<m[3]).slice(0,1).map(m=>`・次は「${m[2]}」${w.v[m[0]]||0}/${m[3]}`).join("")}</p>`+(tUp?`<div class="newach" role="status"><div><i>${tUp.e}</i><span><small>肩書きが上がった</small><b>${tUp.n}</b></span></div>${tUp.n==="駆け出し"?`<div><i>⛓️</i><span><small>新しい遊び方が開いた</small><b>連続的中チャレンジ</b></span></div>`:""}</div>`:"")+
   (wDone?`<div class="newach" role="status"><div><i>🏅</i><span><small>今週のミッションを3つそろえた</small><b>🏅×${REC.wm}</b></span></div></div>`:"")}
 // 連続的中チャレンジの終わり：何本続いたか（共有の文に答えは出さない）
 function survEnd(){
