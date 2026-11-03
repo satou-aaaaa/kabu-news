@@ -150,6 +150,8 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .qch button{text-align:left;font-size:14px;line-height:1.5;min-height:56px;padding:10px 14px}
 .qch button.right{border-color:var(--gold);background:#f4c04e26}
 .qch button.wrong{border-color:var(--down);opacity:.7}
+.rival{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;background:var(--panel);border-radius:10px;padding:8px 12px;font-size:13px;color:var(--muted)}
+.rival b{font-size:16px}.rival em{font-style:normal;font-weight:900;color:var(--gold)}
 canvas#fx{position:fixed;inset:0;pointer-events:none;width:100%;height:100%;z-index:4}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -196,6 +198,8 @@ function build(seed,hard,seen){
     if((ups>0&&ups<TURNS&&(!hard||tw>=2))||tries>(hard?400:20)) return withHist(picks,r);
   }
 }
+// ライバル「見出しどおり」：見出しの印象のとおりに半分ずつ張る（ひねった問題では外す）
+function rivalMoney(list){let m=START;for(const e of list){const side=Math.sign(e.p)*(e.x?-1:1);m+=Math.round(m*.5*side*e.p/100)}return m}
 function withHist(picks,r){return picks.map(e=>{const base=400+Math.floor(r()*36)*100,h=[base];
   for(let k=0;k<11;k++)h.push(Math.max(50,Math.round(h[k]*(1+(r()-.5)*.07))));return{...e,hist:h}})}
 // 復習：はずれたニュースから最大5本（当てると復習の一覧から消える）
@@ -314,6 +318,7 @@ function howto(){
     <p>3. 自信がなければ見送れます。お金は動きません。</p>
     <p>4. 「今日の5本」はだれでも同じ問題で、1日1回。練習は何度でも遊べます。</p>
     <p>5. 今日の5本を終えると<b>上級の5本</b>に挑戦できます。いつも全力で、見出しの印象と逆に動くニュースが多めです。</p>
+    <p>6. 結果の画面では、見出しの印象どおりに張った「見出しどおり」と比べられます。ひねったニュースを見抜けば勝てます。</p>
     <p class="sec">覚えた言葉（${ws.length}/${Object.keys(TERMS).length}）</p>
     <div class="words">${ws.length?ws.map(k=>`<div class="term"><b>${TERMS[k][0]}</b>${TERMS[k][1]}</div>`).join(""):`<div class="term">遊ぶと、ニュースに出てきた株の言葉がここにたまります。</div>`}</div>
     ${ws.length>=5?`<button class="hardbtn" id="quiz">📝 覚えた言葉のテスト<small>5問・3つから選ぶ</small></button>`:`<p class="sub">言葉を5つ覚えると、言葉のテストができます</p>`}
@@ -429,6 +434,8 @@ function end(){
     <div class="rank">${rank}</div>
     <div class="big ${pct>=0?"u":"d"}" id="tot" aria-live="polite">0%</div>
     ${G.daily&&st?`<div><span class="fire">🔥 ${st}日連続</span></div>`:""}
+    ${!old&&G.list.length===TURNS?(()=>{const rm=rivalMoney(G.list),rp=Math.round((rm/START-1)*100),win=G.money>rm,tie=G.money===rm;
+      return `<div class="rival"><span>見出しどおりに張ると</span><b class="${rp>=0?"u":"d"}">${rp>=0?"+":""}${rp}%</b><em>${tie?"引き分け":win?"あなたの勝ち":"見出しどおりの勝ち"}</em></div>`})():""}
     <div class="share">${shown(text)}</div>
     ${shareRow()}
     ${got.length?`<div class="newach" role="status">${got.map(a=>`<div><i>${a.e}</i><span><small>実績を手に入れた</small><b>${a.n}</b></span></div>`).join("")}</div>`:""}
