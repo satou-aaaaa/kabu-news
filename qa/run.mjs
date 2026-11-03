@@ -115,6 +115,11 @@ try {
   check("共有の文に答え（ニュースや会社名）が出ない", !list.length || !(await page.evaluate(() => window.__kabu.COMPANIES.some((c) => document.querySelector(".share").textContent.includes(c.n)))));
   check("終わりの画面に今日出てきた言葉が並ぶ", (await page.locator(".words .term").count()) >= 1);
   check("今日の5本を終えた画面に Ko-fi のひとこと（ただのリンク1行）が出る", money < 1000000 ? (await page.locator(".kofi").count()) === 0 : (await page.locator(".kofi a[href='https://ko-fi.com/satouaaaaa']").count()) === 1);
+  { const rival = (await page.textContent(".rival")).replace(/\s+/g, "");
+    const exp = await page.evaluate(() => { const s = (str) => { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+      const d = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); let m = 1000000;
+      for (const e of window.__kabu.build(s(d))) { const side = Math.sign(e.p) * (e.x ? -1 : 1); m += Math.round(m * .5 * side * e.p / 100); } return Math.round((m / 1e6 - 1) * 100); });
+    check("ライバル「見出しどおり」の成績と勝ち負けが出る（見出しの印象どおりに半分ずつ張った計算と同じ）", rival.includes(`${exp >= 0 ? "+" : ""}${exp}%`) && /(あなたの勝ち|見出しどおりの勝ち|引き分け)/.test(rival), rival + " / " + exp); }
   check("終わりの画面に5本のふり返り（会社・値動き）が出る", (await page.locator(".recap div").count()) === 5);
   check("初めての今日の5本で、実績「はじめの一歩」を手に入れたと出る", /はじめの一歩/.test(await page.textContent(".newach")));
   check("今日の5本のあと、終わりの画面から上級に挑戦できる", (await page.locator("#hard").count()) === 1);
