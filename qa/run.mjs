@@ -53,6 +53,15 @@ check("CSP で通信先を自分だけにしている", /connect-src 'self'/.tes
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 check("文字（Google Fonts）は画面を止めずに後から読む（media=print と onload）", /<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com[^"]+" media="print" onload="this\.media='all'">/.test(html));
+// 文字の濃さ（WCAG 2.1 のコントラスト比。ふつうの文字 4.5、大きい文字 3 以上）を、見えている文字すべてで測る
+const contrastLow = (page) => page.evaluate(() => {
+  const rgb = (c) => c.match(/[\d.]+/g).map(Number), lum = (m) => { const f = (v) => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }; return .2126 * f(m[0]) + .7152 * f(m[1]) + .0722 * f(m[2]); };
+  const bgOf = (el) => { const cols = []; for (let e = el; e; e = e.parentElement) { const m = rgb(getComputedStyle(e).backgroundColor); if ((m[3] ?? 1) > 0) cols.push(m); if ((m[3] ?? 1) >= 1) break; }
+    let base = rgb(getComputedStyle(document.body).backgroundColor); for (const m of cols.reverse()) { const a = m[3] ?? 1; base = base.map((v, i) => v * (1 - a) + m[i] * a); } return base; };
+  const out = []; for (const el of document.querySelectorAll("#screen *, header *")) { const t = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent.trim()).join(""); if (!t || !el.getClientRects().length) continue;
+    const cs = getComputedStyle(el), op = +cs.opacity, fg = rgb(cs.color), bg = bgOf(el), fgm = fg.map((v, i) => v * op + bg[i] * (1 - op));
+    const a = lum(fgm), b = lum(bg), r = (Math.max(a, b) + .05) / (Math.min(a, b) + .05), big = parseFloat(cs.fontSize) >= 18.66 || (parseFloat(cs.fontSize) >= 14 && +cs.fontWeight >= 700);
+    if (r < (big ? 3 : 4.5)) out.push(`${t.slice(0, 12)}:${r.toFixed(2)}`); } return out; });
 const isNoise = (t) => /fonts\.(googleapis|gstatic)\.com|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|net::ERR_/.test(t);
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 800 } });
@@ -88,7 +97,9 @@ try {
   check("ボタンに今日が第何回かが出る（だれでも同じ回）", /^第\d+回 /.test((await page.textContent("#go")).trim()));
   { const small = await page.evaluate(() => [...document.querySelectorAll("button,a")].filter((b) => b.offsetParent && b.id !== "home").map((b) => { const r = b.getBoundingClientRect(); return [b.id || b.textContent.trim().slice(0, 8), r.width, r.height]; }).filter(([, w, h]) => w < 44 || h < 44));
     check("押す所はどれも44px以上（指で押しやすい）", small.length === 0, JSON.stringify(small)); }
+  { const low = await contrastLow(page); check("はじめの画面の文字は背景と十分な濃さの差がある（WCAG 4.5:1、大きい文字 3:1）", low.length === 0, low.join(" / ")); }
   await page.click("#go");
+  { await page.waitForTimeout(900); const low = await contrastLow(page); check("問題の画面の文字（買う・売るの小さい文字も）は背景と十分な濃さの差がある", low.length === 0, low.join(" / ")); }
   check("初めての1問目に、買う・売るのヒントが1行出る", (await page.locator(".hint").count()) === 1);
   const list = await page.evaluate(() => { const s = (str) => { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
     const d = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); return window.__kabu.build(s(d)).map((e) => e.p); });
