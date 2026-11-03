@@ -41,7 +41,7 @@ const silly = /お笑い|ギャグ|ボケ|ツッコミ|スベ|ウケ|なんで�
 const sillyHit = [...COMPANIES.map((c) => c.n), ...EVENTS.flatMap((e) => [e.n, e.o])].filter((t) => silly.test(t));
 check("会社名・ニュースにお笑いの言葉を入れない（本物っぽく）", sillyHit.length === 0, sillyHit.join(","));
 const html = readFileSync(path.join(root, "index.html"), "utf8");
-const ext = [...html.matchAll(/(?:src|href)="(https?:[^"]+)"/g)].map((m) => m[1]).filter((u) => !/^https:\/\/fonts\.googleapis\.com(\/|$)|^https:\/\/ko-fi\.com\/satouaaaaa$|^https:\/\/twitter\.com\/intent\/tweet\?text=$|^https:\/\/line\.me\/R\/share\?text=$/.test(u));
+const ext = [...html.matchAll(/(?:src|href)="(https?:[^"]+)"/g)].map((m) => m[1]).filter((u) => !/^https:\/\/fonts\.googleapis\.com(\/|$)|^https:\/\/fonts\.gstatic\.com$|^https:\/\/ko-fi\.com\/satouaaaaa$|^https:\/\/twitter\.com\/intent\/tweet\?text=$|^https:\/\/line\.me\/R\/share\?text=$/.test(u));
 // X・LINE は押したときに開く投稿画面へのリンクで、読み込みはしない
 check("外から読むのは文字（Google Fonts）だけ。スクリプト・広告・解析を入れない", ext.length === 0, ext.join(","));
 { const og = (k) => (html.match(new RegExp(`<meta (?:property|name)="${k}" content="([^"]+)"`)) || [])[1] || "";
@@ -52,6 +52,7 @@ check("外から読むのは文字（Google Fonts）だけ。スクリプト・�
 check("CSP で通信先を自分だけにしている", /connect-src 'self'/.test(html) && !/connect-src[^;"]*https/.test(html));
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
+check("文字（Google Fonts）は画面を止めずに後から読む（media=print と onload）", /<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com[^"]+" media="print" onload="this\.media='all'">/.test(html));
 const isNoise = (t) => /fonts\.(googleapis|gstatic)\.com|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|net::ERR_/.test(t);
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 800 } });
