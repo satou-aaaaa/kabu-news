@@ -35,8 +35,12 @@ const silly = /お笑い|ギャグ|ボケ|ツッコミ|スベ|ウケ|なんで�
 const sillyHit = [...COMPANIES.map((c) => c.n), ...EVENTS.flatMap((e) => [e.n, e.o])].filter((t) => silly.test(t));
 check("会社名・ニュースにお笑いの言葉を入れない（本物っぽく）", sillyHit.length === 0, sillyHit.join(","));
 const html = readFileSync(path.join(root, "index.html"), "utf8");
-const ext = [...html.matchAll(/(?:src|href)="(https?:[^"]+)"/g)].map((m) => m[1]).filter((u) => !/^https:\/\/fonts\.googleapis\.com(\/|$)|^https:\/\/ko-fi\.com\/satouaaaaa$/.test(u));
+const ext = [...html.matchAll(/(?:src|href)="(https?:[^"]+)"/g)].map((m) => m[1]).filter((u) => !/^https:\/\/fonts\.googleapis\.com(\/|$)|^https:\/\/ko-fi\.com\/satouaaaaa$|^https:\/\/twitter\.com\/intent\/tweet\?text=$|^https:\/\/line\.me\/R\/share\?text=$/.test(u));
+// X・LINE は押したときに開く投稿画面へのリンクで、読み込みはしない
 check("外から読むのは文字（Google Fonts）だけ。スクリプト・広告・解析を入れない", ext.length === 0, ext.join(","));
+{ const og = (k) => (html.match(new RegExp(`<meta (?:property|name)="${k}" content="([^"]+)"`)) || [])[1] || "";
+  const png = readFileSync(path.join(root, "og.png"));
+  check("SNS で貼ると絵と題が出る（OGP・1200×630・絶対URL）", og("og:title") && og("og:description") && og("og:image") === "https://satou-aaaaa.github.io/kabu-news/og.png" && og("twitter:card") === "summary_large_image" && png.readUInt32BE(16) === 1200 && png.readUInt32BE(20) === 630, og("og:image")); }
 check("CSP で通信先を自分だけにしている", /connect-src 'self'/.test(html) && !/connect-src[^;"]*https/.test(html));
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
@@ -70,6 +74,10 @@ try {
 
   // 3. 通しで遊ぶ：今日の5本（買う→売る→見送る→全力で買う→売る）。持ち金の計算を別に計算して突き合わせる
   check("はじめの画面に「今日の5本をはじめる」", /今日の5本をはじめる/.test(await page.textContent("#go")));
+  check("初めての人には、空の記録でなく遊び方の3つの絵が出る", (await page.locator(".intro div").count()) === 3 && (await page.locator(".stats").count()) === 0);
+  check("ボタンに今日が第何回かが出る（だれでも同じ回）", /^第\d+回 /.test((await page.textContent("#go")).trim()));
+  { const small = await page.evaluate(() => [...document.querySelectorAll("button,a")].filter((b) => b.offsetParent && b.id !== "home").map((b) => { const r = b.getBoundingClientRect(); return [b.id || b.textContent.trim().slice(0, 8), r.width, r.height]; }).filter(([, w, h]) => w < 44 || h < 44));
+    check("押す所はどれも44px以上（指で押しやすい）", small.length === 0, JSON.stringify(small)); }
   await page.click("#go");
   const list = await page.evaluate(() => { const s = (str) => { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
     const d = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); return window.__kabu.build(s(d)).map((e) => e.p); });
@@ -95,9 +103,16 @@ try {
   const share = await page.textContent(".share");
   const man = (v) => (Math.round(v / 1000) / 10).toLocaleString("ja-JP", { maximumFractionDigits: 1 }) + "万円";
   check("持ち金の計算が合う（半分・全力・見送り）", share.includes(`100万円 → ${man(money)}`), `${share.split("\n")[2]} / 期待 ${man(money)}`);
-  check("共有の文は「題・絵文字5つ・持ち金・称号」", new RegExp(`^株ニュース5本勝負 \\d+/\\d+\\n${marks.join("")}\\n100万円 → .+（[+-]?\\d+%）\\n.+$`, "u").test(share.trim()), share);
+  check("共有の文は「題・絵文字5つ・持ち金・称号」", new RegExp(`^株ニュース5本勝負 第\\d+回（\\d+/\\d+）\\n${marks.join("")}\\n100万円 → .+（[+-]?\\d+%）\\n.+\\n#株ニュース5本勝負$`, "u").test(share.trim()), share);
   check("共有の文に答え（ニュースや会社名）が出ない", !list.length || !(await page.evaluate(() => window.__kabu.COMPANIES.some((c) => document.querySelector(".share").textContent.includes(c.n)))));
   check("終わりの画面に今日出てきた言葉が並ぶ", (await page.locator(".words .term").count()) >= 1);
+  check("終わりの画面に5本のふり返り（会社・値動き）が出る", (await page.locator(".recap div").count()) === 5);
+  { const x = decodeURIComponent((await page.getAttribute("#toX", "href")).split("text=")[1]), ln = decodeURIComponent((await page.getAttribute("#toLine", "href")).split("text=")[1]);
+    const names = await page.evaluate(() => window.__kabu.COMPANIES.map((c) => c.n));
+    check("X・LINE の投稿画面に結果とURLが入る（答えは入らない）", x === ln && x.startsWith(share.trim().split("\n")[0]) && x.endsWith("https://satou-aaaaa.github.io/kabu-news/") && !names.some((n) => x.includes(n)), x);
+    check("X・LINE は自分で押して開くリンクだけ（勝手に送らない）", /^https:\/\/twitter\.com\/intent\/tweet\?/.test(await page.getAttribute("#toX", "href")) && /^https:\/\/line\.me\/R\/share\?/.test(await page.getAttribute("#toLine", "href"))); }
+  check("終わりの画面に次の5本までの時間が出る", /^\d+(時間\d+)?分$/.test(await page.textContent("#nextin")));
+  check("終わりの画面に連続日数が出る", /1日連続/.test(await page.textContent("#screen")));
 
   // 4. 記録：もう一度開くと「練習でもう一回」・遊んだ日1・的中率
   await page.reload();
@@ -106,6 +121,7 @@ try {
   const bets = plan.filter(([a]) => a !== "pass").length, hits = marks.filter((m) => m === "🎯").length;
   check("記録：遊んだ日1・連続1日・的中率", st[0] === "1" && st[1] === "1" && st[2] === `${Math.round(hits / bets * 100)}%`, st.join(","));
   check("この7日のグラフに今日の分が出る", (await page.locator(".week span").count()) === 1);
+  check("遊んだあとのはじめの画面に、シェアと次の5本までの時間が出る", (await page.locator("#share").count()) === 1 && (await page.locator("#nextin").count()) === 1 && (await page.locator(".intro").count()) === 0);
   await page.click("#how");
   check("遊び方の画面に覚えた言葉がたまる", (await page.locator(".words .term b").count()) >= 1);
   await page.click("#back");
@@ -129,7 +145,7 @@ try {
   await pd.clock.setSystemTime(new Date("2026-11-03T15:02:00Z")); // 日本時間 翌 0:02
   for (let i = 1; i < 5; i++) { await pd.click("#buy"); await pd.click("#next"); }
   const recDays = await pd.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("kabu-news-v1")).days));
-  check("0時をまたいでも、始めた日の記録になる（次の日の5本は遊べる）", recDays.join() === "2026-11-03" && /^株ニュース5本勝負 11\/3\n/.test((await pd.textContent(".share")).trim()), recDays.join());
+  check("0時をまたいでも、始めた日の記録になる（次の日の5本は遊べる）", recDays.join() === "2026-11-03" && /^株ニュース5本勝負 第1回（11\/3）\n/.test((await pd.textContent(".share")).trim()), recDays.join());
   await pd.click("#tohome");
   check("0時をまたいだあと、次の日の「今日の5本」が始められる", /今日の5本をはじめる/.test(await pd.textContent("#go")));
   await pd.click("#go");
@@ -189,7 +205,7 @@ try {
   await pf.evaluate(() => { Storage.prototype.setItem = () => { throw new Error("QuotaExceededError"); }; });
   for (let i = 1; i < 5; i++) { await pf.click("#buy"); await pf.click("#next"); }
   const fullShare = (await pf.textContent(".share")).trim(), fullMoney = await pf.evaluate(() => man(G.money)); // 画面の持ち金（万円つき）
-  check("保存が途中で失敗しても、前の問題に戻らず最後まで遊べる", (await pf.locator(".share").count()) === 1 && /^株ニュース5本勝負 \d+\/\d+\n[🎯💥😶]{5}\n100万円 → /u.test(fullShare), fullShare);
+  check("保存が途中で失敗しても、前の問題に戻らず最後まで遊べる", (await pf.locator(".share").count()) === 1 && /^株ニュース5本勝負 第\d+回（\d+\/\d+）\n[🎯💥😶]{5}\n100万円 → /u.test(fullShare), fullShare);
   check("保存が失敗しても、共有文の持ち金が画面の持ち金と同じ", fullShare.includes(`→ ${fullMoney}`), `${fullMoney} / ${fullShare}`);
   await ctxFull.close();
 

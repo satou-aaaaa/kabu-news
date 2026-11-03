@@ -24,7 +24,7 @@ node qa/run.mjs   # データの形・5本の組み方（5000回）・持ち金�
 - 外へ通信しない。外から読むのは Google Fonts の文字だけ（CSP の `connect-src 'self'` を広げない）。スクリプト・広告・解析を入れない。記録は遊ぶ人のブラウザ（localStorage）だけ。
 - 応援は Ko-fi（https://ko-fi.com/satouaaaaa）へのただのリンクだけ。遊ぶのは無料のまま、有料版は置かない（GitHub Pages は売り買いが主目的のサイトに使えない）。
 - 機能を足す・直すたびに `qa/run.mjs` に検査を足す。乱数で動く部分は1回でなく何千回も試す（shared-workflows `incidents/2026-10-31-roppo-empty-village.md`）。
-- PWA（`manifest.webmanifest`・`sw.js`・`icon-*.png`）：画面のファイルを足したら `sw.js` の `SHELL` にも足し、中身を大きく変えたら `CACHE` の版を上げる。アイコンは `node tools/make-icons.cjs` で作り直せる。
+- PWA（`manifest.webmanifest`・`sw.js`・`icon-*.png`）：画面のファイルを足したら `sw.js` の `SHELL` にも足し、中身を大きく変えたら `CACHE` の版を上げる。アイコンは `node tools/make-icons.cjs` で作り直せる。SNS 用の絵 `og.png`（1200×630、答えを入れない）は `node tools/make-og.cjs`。X・LINE は遊ぶ人が押して開く投稿画面へのリンクだけにし、こちらから送らない。
 - 公開リポジトリなので、個人情報・鍵を入れない。
 
 ## 公開

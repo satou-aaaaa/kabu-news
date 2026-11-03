@@ -8,6 +8,17 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="会社のニュースを見て、株が上がるか下がるかを決める1日5本のゲーム。会社とニュースは架空、本当のお金は使いません。">
 <meta name="theme-color" content="#161a33">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="株ニュース5本勝負">
+<meta property="og:title" content="株ニュース5本勝負">
+<meta property="og:description" content="ニュースを読んで、株が上がるか下がるかを当てる。だれでも同じ1日5本、3分で遊べます。">
+<meta property="og:url" content="https://satou-aaaaa.github.io/kabu-news/">
+<meta property="og:image" content="https://satou-aaaaa.github.io/kabu-news/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="株ニュース5本勝負：ニュースを読んで株の上げ下げを当てるゲーム">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -38,7 +49,7 @@ h1 button{all:unset;cursor:pointer}
 .hd-r{flex-shrink:0}
 @media (max-width:360px){.money small{display:none}}
 .money small{color:var(--muted);font-weight:500;margin-right:4px}
-.icon{all:unset;cursor:pointer;font-size:18px;width:32px;height:32px;display:grid;place-items:center;border-radius:8px;border:1px solid var(--line)}
+.icon{all:unset;cursor:pointer;font-size:18px;width:44px;height:44px;display:grid;place-items:center;border-radius:8px;border:1px solid var(--line)}
 .icon:focus-visible{outline:2px solid var(--gold)}
 .col{display:flex;flex-direction:column;gap:14px}
 .steps{display:flex;gap:6px}
@@ -64,7 +75,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .buy{background:var(--up);box-shadow:0 5px 0 #9c2a22}
 .sell{background:var(--down);box-shadow:0 5px 0 #24528f}
 .buy small,.sell small{display:block;font-size:11px;font-weight:700;opacity:.85}
-.pass{grid-column:1/-1;background:transparent;border:1px solid var(--line);color:var(--muted);font-size:14px;padding:10px}
+.pass{grid-column:1/-1;background:transparent;border:1px solid var(--line);color:var(--muted);font-size:14px;padding:13px 10px}
 .main{background:var(--gold);color:var(--ink);box-shadow:0 5px 0 #a87d1e;width:100%}
 .ghost{background:transparent;border:1px solid var(--line);color:var(--paper);width:100%;font-size:14px;padding:12px}
 .allin{display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;color:var(--muted);cursor:pointer;user-select:none}
@@ -101,6 +112,19 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--paper);color:var(--ink);padding:8px 16px;border-radius:20px;font-weight:700;z-index:5}
 .howto{display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.6}
 .howto p{margin:0}
+.intro{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.intro div{background:var(--panel);border-radius:10px;padding:12px 4px 10px;font-size:13px;font-weight:700;line-height:1.45}
+.intro i{display:block;font-style:normal;font-size:26px;margin-bottom:4px}
+.sub{font-size:13px;color:var(--muted);text-align:center;margin:0}
+.next{font-size:14px;color:var(--muted);text-align:center;margin:0;font-variant-numeric:tabular-nums}
+.next b{color:var(--paper)}
+.fire{display:inline-block;background:#e5483d26;color:#ffb3a8;border-radius:20px;padding:3px 12px;font-size:13px;font-weight:900}
+.shares{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.shares a,.shares button{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--paper);font-size:14px;font-weight:900;text-decoration:none;padding:0 6px;box-sizing:border-box}
+.recap{display:flex;flex-direction:column;gap:6px;text-align:left}
+.recap div{display:grid;grid-template-columns:24px 1fr auto;gap:8px;align-items:center;background:var(--panel);border-radius:8px;padding:8px 10px;font-size:14px;line-height:1.4}
+.recap small{display:block;color:var(--muted);font-size:11px}
+.recap b{font-variant-numeric:tabular-nums}
 canvas#fx{position:fixed;inset:0;pointer-events:none;width:100%;height:100%;z-index:4}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -125,6 +149,13 @@ const RANKS=[[40,"一流トレーダー"],[20,"腕利きの投資家"],[5,"堅�
 function rng(seed){let s=seed>>>0||1;return()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296}}
 function seedOf(str){let h=2166136261;for(const ch of str){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
 function jstDay(off=0){return new Date(Date.now()+9*3600e3-off*864e5).toISOString().slice(0,10)}
+// 第何回か（2026-11-03 が第1回）。だれでも同じ回なので、友だちと見比べられる
+const FIRST="2026-11-03";
+function roundNo(day){return Math.round((Date.parse(day)-Date.parse(FIRST))/864e5)+1}
+function md(day){return day.slice(5).replace("-","/").replace(/^0/,"").replace("/0","/")}
+// 次の「今日の5本」（日本時間の0時）まで
+function untilNext(){const ms=864e5-(Date.now()+9*3600e3)%864e5,h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4);return h?`${h}時間${m}分`:`${m}分`}
+function tick(){clearInterval(tick.h);const el=$("nextin");if(!el)return;el.textContent=untilNext();tick.h=setInterval(()=>{const e=$("nextin");if(e)e.textContent=untilNext();else clearInterval(tick.h)},3e4)}
 // 1回分の5本。会社は重ねない。上げと下げは最低1本ずつ入れる（全部同じ向きだと読みが要らなくなる）
 function build(seed){
   const r=rng(seed);
@@ -185,18 +216,21 @@ function home(){
   G=null;sync();setMoney();const today=REC.days[jstDay()],acc=REC.bets?Math.round(REC.hits/REC.bets*100):0;
   const week=[...Array(7)].map((_,i)=>{const d=jstDay(6-i),r=REC.days[d];return{d,r}});
   const maxAbs=Math.max(10,...week.map(w=>w.r?Math.abs(w.r.pct):0));
+  const first=!REC.plays&&!REC.cur,st=streak();
   $("screen").innerHTML=`
     <p class="lead center">会社のニュースを見て<br>株が<span class="u">上がる</span>か<span class="d">下がる</span>かを決めよう。<br>今日の5本で、100万円をどこまで増やせる？</p>
-    ${today?`<div class="share">今日の結果\n${today.text}</div>`:""}
-    <button class="main" id="go">${today?"練習でもう一回":REC.cur&&REC.cur.day===jstDay()?`今日の5本の続き（${REC.cur.t+1}本目から）`:"今日の5本をはじめる"}</button>
-    ${today?`<button class="ghost" id="copy">今日の結果をコピー</button>`:""}
-    <p class="sec">あなたの記録</p>
+    ${first?`<div class="intro" aria-label="遊び方"><div><i>📰</i>ニュースを<br>読む</div><div><i>⚖️</i>買う・売るを<br>決める</div><div><i>💰</i>当たれば<br>増える</div></div>`:""}
+    ${today?`<div class="share">今日の結果\n${shown(today.text)}</div><p class="next">次の5本まで あと <b id="nextin">${untilNext()}</b></p>`:""}
+    ${today?shareRow():""}
+    <button class="${today?"ghost":"main"}" id="go">${today?"練習でもう一回":REC.cur&&REC.cur.day===jstDay()?`今日の5本の続き（${REC.cur.t+1}本目から）`:`第${roundNo(jstDay())}回 今日の5本をはじめる`}</button>
+    ${today?"":`<p class="sub">だれでも同じ5本・1日1回・3分${st?`　<span class="fire">🔥 ${st}日連続</span>`:""}</p>`}
+    ${first?"":`<p class="sec">あなたの記録</p>
     <div class="stats"><div><b>${REC.plays}</b><small>遊んだ日</small></div><div><b>${streak()}</b><small>連続日数</small></div>
       <div><b>${acc}%</b><small>的中率</small></div><div><b>${REC.best?man(REC.best).replace("万円",""):"-"}</b><small>最高(万円)</small></div></div>
-    <div class="week" aria-label="この7日の成績">${week.map(w=>`<div>${w.r?`<span class="${w.r.pct>=0?"u":"d"}">${sign(w.r.pct)}${Math.abs(w.r.pct)}</span><i style="height:${Math.abs(w.r.pct)/maxAbs*48+2}px;background:var(--${w.r.pct>=0?"up":"down"})"></i>`:`<i style="background:var(--line)"></i>`}${+w.d.slice(8)}日</div>`).join("")}</div>
+    <div class="week" aria-label="この7日の成績">${week.map(w=>`<div>${w.r?`<span class="${w.r.pct>=0?"u":"d"}">${sign(w.r.pct)}${Math.abs(w.r.pct)}</span><i style="height:${Math.abs(w.r.pct)/maxAbs*48+2}px;background:var(--${w.r.pct>=0?"up":"down"})"></i>`:`<i style="background:var(--line)"></i>`}${+w.d.slice(8)}日</div>`).join("")}</div>`}
     <button class="ghost" id="how">遊び方と覚えた言葉</button>`;
   $("go").onclick=()=>start(!today);$("how").onclick=howto;
-  if(today)$("copy").onclick=()=>copy(today.text);
+  if(today)bindShare(today.text);tick();
 }
 function howto(){
   const ws=Object.keys(REC.words);
@@ -272,28 +306,46 @@ function pick(side){
   $("next").onclick=()=>{G.t<TURNS?turn():end()};$("next").focus({preventScroll:true});
 }
 function end(){
-  sync();const day=G.day||jstDay(),d=day.slice(5).replace("-","/").replace(/^0/,"").replace("/0","/");
+  sync();const day=G.day||jstDay(),d=md(day);
   // 別のタブで今日の5本を先に終えていたら、その記録を見せる（画面と記録を食い違わせない）
   const old=G.daily&&REC.days[day];
   const pct=old?old.pct:Math.round((G.money/START-1)*100),rank=RANKS.find(r=>pct>=r[0])[1];
   const url=/^https:/.test(location.protocol)&&/github\.io$/.test(location.hostname)?"\n"+location.origin+location.pathname:"";
-  const text=old?old.text:`株ニュース5本勝負 ${G.daily?d:"練習"}\n${G.marks.join("")}\n100万円 → ${man(G.money)}（${pct>=0?"+":""}${pct}%）\n${rank}${url}`;
+  const text=old?old.text:`株ニュース5本勝負 ${G.daily?`第${roundNo(day)}回（${d}）`:"練習"}\n${G.marks.join("")}\n100万円 → ${man(G.money)}（${pct>=0?"+":""}${pct}%）\n${rank}\n${TAG}${url}`;
   if(G.daily&&!old){REC.days[day]={pct,marks:G.marks.join(""),text};REC.plays++;REC.hits+=G.hits;REC.bets+=G.bets}
   if(G.daily&&REC.cur&&REC.cur.day===day)delete REC.cur;
   if(!old&&G.t>=TURNS&&G.money>REC.best)REC.best=G.money;
   const newWords=G.words.filter(w=>!REC.words[w]);for(const w of G.words)REC.words[w]=1;save(REC);
+  const st=streak();
+  // ふり返り：どの会社のどんなニュースで、どう動いたか（共有の文には出さない）
+  const recap=old?"":G.list.map((e,i)=>`<div><span aria-hidden="true">${G.marks[i]||""}</span><span>${COMPANIES[e.c].n}<small>${e.n}</small></span><b class="${e.p>=0?"u":"d"}">${e.p>=0?"▲":"▼"}${Math.abs(e.p)}%</b></div>`).join("");
   $("screen").innerHTML=`<div class="col center">
     <div class="rank">${rank}</div>
-    <div class="big ${pct>=0?"u":"d"}" id="tot">0%</div>
-    <div class="share">${text.replace(url,"")}</div>
-    <button class="main" id="copy">結果をコピーして見せる</button>
+    <div class="big ${pct>=0?"u":"d"}" id="tot" aria-live="polite">0%</div>
+    ${G.daily&&st?`<div><span class="fire">🔥 ${st}日連続</span></div>`:""}
+    <div class="share">${shown(text)}</div>
+    ${shareRow()}
+    ${G.daily?`<p class="next">次の5本まで あと <b id="nextin">${untilNext()}</b></p>`:""}
+    ${recap?`<p class="sec">ふり返り</p><div class="recap">${recap}</div>`:""}
     <p class="sec">今日出てきた言葉${newWords.length?`（新しく${newWords.length}つ）`:""}</p>
     <div class="words">${G.words.map(k=>`<div class="term"><b>${TERMS[k][0]}</b>${TERMS[k][1]}</div>`).join("")}</div>
     <button class="ghost" id="again">練習でもう一回</button>
     <button class="ghost" id="tohome">記録を見る</button></div>`;
   countUp($("tot"),0,pct,v=>`${v>=0?"+":"−"}${Math.abs(Math.round(v))}%`,900);
   beep("end");if(pct>=20)confetti();
-  $("copy").onclick=()=>copy(text);$("again").onclick=()=>start(false);$("tohome").onclick=home;
+  bindShare(text);tick();$("again").onclick=()=>start(false);$("tohome").onclick=home;
+}
+// 共有：スマホは共有シートを出し、無ければコピー。X と LINE は投稿画面を開くだけ（送るのは遊ぶ人）
+const TAG="#株ニュース5本勝負";
+function shown(text){return text.replace(/\n?https?:\/\/\S+$/,"")}
+function shareRow(){return `<button class="main" id="share">結果をシェア</button>
+    <div class="shares"><a id="toX" target="_blank" rel="noopener">Xで投稿</a><a id="toLine" target="_blank" rel="noopener">LINEで送る</a><button id="copy">コピー</button></div>`}
+function bindShare(text){
+  const withUrl=/https?:\/\//.test(text)?text:text+"\n"+"https://satou-aaaaa.github.io/kabu-news/";
+  $("toX").href="https://twitter.com/intent/tweet?text="+encodeURIComponent(withUrl);
+  $("toLine").href="https://line.me/R/share?text="+encodeURIComponent(withUrl);
+  $("copy").onclick=()=>copy(withUrl);
+  $("share").onclick=()=>{if(navigator.share)navigator.share({text:withUrl}).catch(()=>{});else copy(withUrl)};
 }
 function copy(text){const ok=()=>toast("コピーしました");
   if(navigator.clipboard)navigator.clipboard.writeText(text).then(ok,()=>fallback(text));else fallback(text)}
