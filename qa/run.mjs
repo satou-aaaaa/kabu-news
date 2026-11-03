@@ -29,7 +29,7 @@ check("見出しの印象と逆に動くひねった問題（x:1）が2割くら
 check("見出しが重ならない", new Set(EVENTS.map((e) => e.n)).size === EVENTS.length);
 check("会社の番号と用語がデータにある", EVENTS.every((e) => COMPANIES[e.c] && TERMS[e.t]), EVENTS.filter((e) => !TERMS[e.t]).map((e) => e.t).join(","));
 { const per = COMPANIES.map((c, i) => EVENTS.filter((e) => e.c === i).length);
-  check("ニュースは130本以上・どの会社も10本以上（すぐ同じ問題にならない）", EVENTS.length >= 130 && per.every((n) => n >= 10), per.join(",")); }
+  check("ニュースは180本以上・どの会社も15本以上（すぐ同じ問題にならない）", EVENTS.length >= 180 && per.every((n) => n >= 15), per.join(",")); }
 // 見出しに株価の向きを書かない（答えが見えてしまう。2026-11-04 下書きで「株価は下落」と書きかけた）
 const tell = EVENTS.filter((e) => /株価[はが]?(下落|上昇|値上がり|値下がり|上が|下が|急落|反発)/.test(e.n));
 check("見出しに株価の向き（上がった・下がった）を書かない", tell.length === 0, tell.map((e) => e.n).join(","));
