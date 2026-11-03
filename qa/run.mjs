@@ -43,6 +43,8 @@ check("外から読むのは文字（Google Fonts）だけ。スクリプト・�
 { const og = (k) => (html.match(new RegExp(`<meta (?:property|name)="${k}" content="([^"]+)"`)) || [])[1] || "";
   const png = readFileSync(path.join(root, "og.png"));
   check("SNS で貼ると絵と題が出る（OGP・1200×630・絶対URL）", og("og:title") && og("og:description") && og("og:image") === "https://satou-aaaaa.github.io/kabu-news/og.png" && og("twitter:card") === "summary_large_image" && png.readUInt32BE(16) === 1200 && png.readUInt32BE(20) === 630, og("og:image")); }
+{ const fy = readFileSync(path.join(root, ".github/ISSUE_TEMPLATE/feedback.yml"), "utf8");
+  check("感想フォームは名前・メールを聞かない（楽しさ・よかった所・直してほしい所だけ）", /id: fun/.test(fy) && /id: good/.test(fy) && /id: wish/.test(fy) && !/id: (name|email|mail)/.test(fy)); }
 check("CSP で通信先を自分だけにしている", /connect-src 'self'/.test(html) && !/connect-src[^;"]*https/.test(html));
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
@@ -177,6 +179,26 @@ try {
   check("図鑑：読んだニュースが数えられる（今日・練習・上級）", seenN >= 11 && seenN <= 15, String(seenN));
   check("会社図鑑に12社の枠があり、読んだ会社は名前が出る", (await page.locator(".zukan div").count()) === 12 && (await page.locator(".zukan div:not(.no)").count()) >= 5);
   check("ひねった問題の的中率が出る", /^(\d+%|-)$/.test(await page.locator(".stats b").first().textContent()));
+  await page.click("#back");
+  // 復習：はずれたニュースを集めて解き直す。当てると一覧から消える
+  const missHeads = await page.evaluate(() => { const ev = window.__kabu.EVENTS, h = [ev.find((e) => e.p > 0).n, ev.find((e) => e.p < 0).n];
+    const r = JSON.parse(localStorage.getItem("kabu-news-v1")); r.miss = { [h[0]]: 1, [h[1]]: 1 }; localStorage.setItem("kabu-news-v1", JSON.stringify(r)); return h; });
+  await page.reload();
+  check("はずれたニュースがあると、はじめの画面に復習のボタンが出る", /復習（2本）/.test(await page.textContent("#rev")));
+  await page.click("#rev");
+  for (let i = 0; i < 2; i++) {
+    await page.waitForFunction((hs) => hs.includes(document.querySelector("#nw")?.textContent), missHeads);
+    const h = await page.textContent("#nw"), up = await page.evaluate((h) => window.__kabu.EVENTS.find((e) => e.n === h).p > 0, h);
+    await page.click(up ? "#buy" : "#sell"); await page.click("#next");
+  }
+  check("復習は、はずれたニュースだけを出し、共有の文は「復習」", /^株ニュース5本勝負 復習\n🎯🎯\n/u.test((await page.textContent(".share")).trim()), (await page.textContent(".share")).trim());
+  const missLeft = await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("kabu-news-v1")).miss).length);
+  check("復習で当てたニュースは復習の一覧から消える", missLeft === 0, String(missLeft));
+  { const fb = await page.locator(".fb a").evaluateAll((as) => as.map((a) => a.href));
+    check("終わりの画面に感想のリンク（3つの顔と文）があり、GitHub の感想フォームを開くだけ", fb.length === 4 && fb.every((u) => u.startsWith("https://github.com/satou-aaaaa/kabu-news/issues/new?template=feedback.yml&")) && /title=%5B%E6%84%9F%E6%83%B3%5D/.test(fb[0]), fb.join(" ")); }
+  await page.click("#tohome");
+  check("復習するニュースが無くなると、復習のボタンは消える", (await page.locator("#rev").count()) === 0);
+  await page.click("#col");
   await page.click("#back");
   check("遊んでいる間にページのエラーが無い", errors.length === 0, errors.join(" / "));
 
