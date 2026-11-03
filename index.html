@@ -152,6 +152,10 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .qch button.wrong{border-color:var(--down);opacity:.7}
 .rival{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;background:var(--panel);border-radius:10px;padding:8px 12px;font-size:13px;color:var(--muted)}
 .rival b{font-size:16px}.rival em{font-style:normal;font-weight:900;color:var(--gold)}
+.tmk{display:flex;flex-direction:column;gap:6px;background:var(--panel);border-radius:10px;padding:10px 12px}
+.tmk>small{color:var(--muted);font-size:11px}
+.tmk div{display:grid;grid-template-columns:7em 1fr 3em;gap:8px;align-items:center;font-size:13px}
+.tmk div .bar{margin:0}.tmk div small{color:var(--muted);text-align:right}
 canvas#fx{position:fixed;inset:0;pointer-events:none;width:100%;height:100%;z-index:4}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -209,7 +213,7 @@ function reviewList(seed){const r=rng(seed),l=EVENTS.filter(e=>REC.miss[e.n]);
 // ---- 記録（端末の中だけ） ----
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch{return{}}}
 function save(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
-const fresh=()=>Object.assign({days:{},best:0,hits:0,bets:0,plays:0,sound:false,words:{},hdays:{},hbest:0,seen:{},co:{},tw:[0,0],ai:0,ach:{},miss:{}},load());
+const fresh=()=>Object.assign({days:{},best:0,hits:0,bets:0,plays:0,sound:false,words:{},hdays:{},hbest:0,seen:{},co:{},tw:[0,0],ai:0,ach:{},miss:{},tm:{}},load());
 // 今日の5本（days・cur）と上級の5本（hdays・hcur）は記録の置き場所だけがちがう
 const dk=g=>g.hard?"hdays":"days",ck=g=>g.hard?"hcur":"cur";
 let REC=fresh();
@@ -305,6 +309,9 @@ function collection(){
     <p class="sec">腕前</p>
     <div class="stats"><div><b>${tw}</b><small>ひねった問題の的中率</small></div><div><b>${maxStreak()}</b><small>最長の連続日数</small></div>
       <div><b>${REC.hbest?man(REC.hbest).replace("万円",""):"-"}</b><small>上級の最高(万円)</small></div><div><b>${seen}/${EVENTS.length}</b><small>読んだニュース</small></div></div>
+    ${(()=>{const r=Object.entries(REC.tm).filter(([k,v])=>v[0]>=2&&TERMS[k]).map(([k,v])=>[k,v[1]/v[0],v]);if(r.length<2)return "";
+      r.sort((a,b)=>a[1]-b[1]);const row=([k,q,v])=>`<div><b>${TERMS[k][0]}</b><span class="bar"><span style="width:${Math.round(q*100)}%"></span></span><small>${v[1]}/${v[0]}</small></div>`;
+      return `<p class="sec">ニュースの種類ごとの的中</p><div class="tmk"><small>にがて</small>${r.slice(0,3).map(row).join("")}${r.length>3?`<small>とくい</small>${r.slice(-Math.min(3,r.length-3)).reverse().map(row).join("")}`:""}</div>`})()}
     <p class="sec">会社図鑑</p>
     <div class="zukan">${COMPANIES.map((c,i)=>{const s=REC.co[i];return s?`<div><i>${c.e}</i><b>${c.n}</b><small>${c.s}・読んだ${s[0]}回・的中${s[2]}/${s[1]}</small></div>`:`<div class="no"><i>？</i><b>？？？</b><small>まだ読んでいない</small></div>`}).join("")}</div>
     <button class="main" id="back">もどる</button></div>`;
@@ -392,7 +399,7 @@ function pick(side){
   G.money+=gain;const hit=side!==0&&Math.sign(e.p)===side;
   G.marks.push(side===0?"😶":hit?"🎯":"💥");if(!G.words.includes(e.t))G.words.push(e.t);
   if(side!==0){G.bets++;G.hits+=hit?1:0}
-  (G.log||(G.log=[])).push({n:e.n,c:e.c,x:e.x?1:0,s:side,h:hit?1:0,a:G.allIn?1:0});
+  (G.log||(G.log=[])).push({n:e.n,c:e.c,t:e.t,x:e.x?1:0,s:side,h:hit?1:0,a:G.allIn?1:0});
   setMoney(before);
   const col=e.p>=0?"u":"d",[tn,td]=TERMS[e.t];
   $("screen").innerHTML=`${steps()}
@@ -423,7 +430,7 @@ function end(){
   if(G.daily&&REC[ck(G)]&&REC[ck(G)].day===day)delete REC[ck(G)];
   const bk=G.hard?"hbest":"best";if(!old&&!G.review&&G.t>=TURNS&&G.money>REC[bk])REC[bk]=G.money;
   // 図鑑は練習も数える。腕前（ひねった問題・全力）は今日の5本と上級だけ
-  if(!old)for(const l of G.log||[]){REC.seen[l.n]=1;if(l.s&&!l.h)REC.miss[l.n]=1;else if(l.h)delete REC.miss[l.n];const c=REC.co[l.c]||(REC.co[l.c]=[0,0,0]);c[0]++;if(l.s){c[1]++;c[2]+=l.h}
+  if(!old)for(const l of G.log||[]){REC.seen[l.n]=1;if(l.s&&l.t&&!G.review){const m=REC.tm[l.t]||(REC.tm[l.t]=[0,0]);m[0]++;m[1]+=l.h}if(l.s&&!l.h)REC.miss[l.n]=1;else if(l.h)delete REC.miss[l.n];const c=REC.co[l.c]||(REC.co[l.c]=[0,0,0]);c[0]++;if(l.s){c[1]++;c[2]+=l.h}
     if(G.daily){if(l.x&&l.s){REC.tw[0]++;REC.tw[1]+=l.h}if(l.a&&l.h)REC.ai++}}
   const newWords=G.words.filter(w=>!REC.words[w]);for(const w of G.words)REC.words[w]=1;
   const got=achs().filter(a=>a.got&&!before.has(a.id));for(const a of got)REC.ach[a.id]=day;save(REC);

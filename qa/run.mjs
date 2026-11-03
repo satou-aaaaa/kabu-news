@@ -189,6 +189,9 @@ try {
   const seenN = Number((await page.locator(".stats b").nth(3).textContent()).split("/")[0]);
   check("図鑑：読んだニュースが数えられる（今日・練習・上級）", seenN >= 11 && seenN <= 15, String(seenN));
   check("会社図鑑に12社の枠があり、読んだ会社は名前が出る", (await page.locator(".zukan div").count()) === 12 && (await page.locator(".zukan div:not(.no)").count()) >= 5);
+  { const tm = await page.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).tm);
+    const ok = Object.values(tm).every(([b, h]) => b >= 1 && h >= 0 && h <= b), shown = await page.locator(".tmk div").count();
+    check("ニュースの種類（用語）ごとの的中を数え、2回以上張った種類が2つ以上あれば、にがて順に並ぶ", ok && (Object.values(tm).filter(([b]) => b >= 2).length < 2 ? shown === 0 : shown >= 2), JSON.stringify(tm)); }
   check("ひねった問題の的中率が出る", /^(\d+%|-)$/.test(await page.locator(".stats b").first().textContent()));
   await page.click("#back");
   // 復習：はずれたニュースを集めて解き直す。当てると一覧から消える
