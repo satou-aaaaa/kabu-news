@@ -23,6 +23,8 @@ check("上げと下げのニュースがどちらも4割以上（どちらか一
 const longs = EVENTS.filter((e) => [...e.n].length > 22 || [...e.o].length > 22);
 check("見出しと「なぜ動いたか」は22字以内（一目で読める）", longs.length === 0, longs.map((e) => e.n).join(","));
 check("値動きは±1〜20%で、0が無い", EVENTS.every((e) => Number.isInteger(e.p) && e.p !== 0 && Math.abs(e.p) <= 20));
+const twist = EVENTS.filter((e) => e.x).length;
+check("見出しの印象と逆に動くひねった問題（x:1）が2割くらい（18%以上）", twist / EVENTS.length >= .18, `${twist}/${EVENTS.length}`);
 check("見出しが重ならない", new Set(EVENTS.map((e) => e.n)).size === EVENTS.length);
 check("会社の番号と用語がデータにある", EVENTS.every((e) => COMPANIES[e.c] && TERMS[e.t]), EVENTS.filter((e) => !TERMS[e.t]).map((e) => e.t).join(","));
 const unused = Object.keys(TERMS).filter((k) => !EVENTS.some((e) => e.t === k));
@@ -115,6 +117,34 @@ try {
   await page.click("#tohome");
   check("練習では遊んだ日が増えない", (await page.locator(".stats b").first().textContent()) === "1");
   check("遊んでいる間にページのエラーが無い", errors.length === 0, errors.join(" / "));
+
+  // 5b. 今日の5本の記録が壊れない（0時をまたぐ・別のタブ・途中で問題が変わらない）
+  const ctxDay = await browser.newContext({ viewport: { width: 390, height: 800 } });
+  const pd = await ctxDay.newPage();
+  await pd.clock.install({ time: new Date("2026-11-03T14:58:00Z") }); // 日本時間 23:58
+  await pd.goto(url); await pd.click("#go");
+  await pd.click("#buy"); await pd.click("#next");
+  const cur = await pd.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).cur);
+  check("途中の記録に5本の一覧と始めた日が入る（問題が入れ替わらない）", cur && cur.list?.length === 5 && cur.day === "2026-11-03", JSON.stringify(cur?.day));
+  await pd.clock.setSystemTime(new Date("2026-11-03T15:02:00Z")); // 日本時間 翌 0:02
+  for (let i = 1; i < 5; i++) { await pd.click("#buy"); await pd.click("#next"); }
+  const recDays = await pd.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("kabu-news-v1")).days));
+  check("0時をまたいでも、始めた日の記録になる（次の日の5本は遊べる）", recDays.join() === "2026-11-03" && /^株ニュース5本勝負 11\/3\n/.test((await pd.textContent(".share")).trim()), recDays.join());
+  await pd.click("#tohome");
+  check("0時をまたいだあと、次の日の「今日の5本」が始められる", /今日の5本をはじめる/.test(await pd.textContent("#go")));
+  await ctxDay.close();
+
+  const ctxTab = await browser.newContext({ viewport: { width: 390, height: 800 } });
+  const ta = await ctxTab.newPage(), tb = await ctxTab.newPage();
+  await ta.goto(url); await tb.goto(url);
+  await ta.click("#go"); // 古いタブで途中まで
+  await tb.click("#go");
+  for (let i = 0; i < 5; i++) { await tb.click("#sell"); await tb.click("#next"); }
+  const bPct = await tb.evaluate(() => { const d = JSON.parse(localStorage.getItem("kabu-news-v1")); return Object.values(d.days)[0].pct; });
+  await ta.click("#buy"); await ta.click("#next");
+  const after = await ta.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")));
+  check("別のタブで今日の5本を終えたら、古いタブが記録を消さない", Object.values(after.days)[0]?.pct === bPct && after.plays === 1 && !after.cur, JSON.stringify({ plays: after.plays, cur: !!after.cur }));
+  await ctxTab.close();
 
   // 6. 記録が使えない端末（プライベートモードなど）でも遊べる
   const ctxNo = await browser.newContext({ viewport: { width: 390, height: 800 } });

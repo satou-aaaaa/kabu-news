@@ -142,7 +142,10 @@ function build(seed){
 // ---- 記録（端末の中だけ） ----
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch{return{}}}
 function save(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
-let REC=Object.assign({days:{},best:0,hits:0,bets:0,plays:0,sound:false,words:{}},load());
+const fresh=()=>Object.assign({days:{},best:0,hits:0,bets:0,plays:0,sound:false,words:{}},load());
+let REC=fresh();
+// 書く前に読み直す（別のタブで今日の5本を終えていたら、その記録を消さない）
+function sync(){REC=fresh()}
 function streak(){let n=0;for(let i=REC.days[jstDay()]?0:1;REC.days[jstDay(i)];i++)n++;return n}
 
 // ---- 音（押したときだけ鳴らす） ----
@@ -179,7 +182,7 @@ function chart(hist,next){
 
 // ---- 画面 ----
 function home(){
-  G=null;setMoney();const today=REC.days[jstDay()],acc=REC.bets?Math.round(REC.hits/REC.bets*100):0;
+  G=null;sync();setMoney();const today=REC.days[jstDay()],acc=REC.bets?Math.round(REC.hits/REC.bets*100):0;
   const week=[...Array(7)].map((_,i)=>{const d=jstDay(6-i),r=REC.days[d];return{d,r}});
   const maxAbs=Math.max(10,...week.map(w=>w.r?Math.abs(w.r.pct):0));
   $("screen").innerHTML=`
@@ -209,13 +212,16 @@ function howto(){
   $("back").onclick=home;
 }
 function start(daily){
-  const cur=REC.cur&&REC.cur.day===jstDay()?REC.cur:null;
-  if(daily&&cur){G={...cur,daily:true,list:build(cur.seed)};beep("tap");G.t<TURNS?turn():end();return}
-  const seed=daily?seedOf(jstDay()):Math.floor(Math.random()*2**31);
-  G={daily,seed,list:build(seed),t:0,money:START,marks:[],allIn:false,words:[],bets:0,hits:0};beep("tap");turn();
+  sync();const day=jstDay(),cur=REC.cur&&REC.cur.day===day?REC.cur:null;
+  if(daily&&REC.days[day]){home();return}
+  // 続きは保存した5本をそのまま使う（途中で data.js が変わっても問題が入れ替わらない）
+  if(daily&&cur){G={...cur,daily:true,list:cur.list||build(cur.seed)};beep("tap");G.t<TURNS?turn():end();return}
+  const seed=daily?seedOf(day):Math.floor(Math.random()*2**31);
+  // 日付は始めた日で固定（0時をまたいでも、始めた日の記録になる）
+  G={daily,day,seed,list:build(seed),t:0,money:START,marks:[],allIn:false,words:[],bets:0,hits:0};beep("tap");turn();
 }
 // 今日の5本は1本ずつ記録して、途中で閉じても続きから（やり直しで結果を変えられないように）
-function saveCur(){if(!G.daily)return;const{list,...rest}=G;REC.cur={...rest,day:jstDay()};save(REC)}
+function saveCur(){if(!G.daily)return;sync();if(REC.days[G.day])return;REC.cur={...G};save(REC)}
 function turn(){
   const e=G.list[G.t],now=e.hist.at(-1);setMoney();
   $("screen").innerHTML=`${steps()}
@@ -258,19 +264,19 @@ function pick(side){
 }
 function end(){
   const pct=Math.round((G.money/START-1)*100),rank=RANKS.find(r=>pct>=r[0])[1];
-  const d=jstDay().slice(5).replace("-","/").replace(/^0/,"").replace("/0","/");
+  sync();const day=G.day||jstDay(),d=day.slice(5).replace("-","/").replace(/^0/,"").replace("/0","/");
   const url=/^https:/.test(location.protocol)&&/github\.io$/.test(location.hostname)?"\n"+location.origin+location.pathname:"";
   const text=`株ニュース5本勝負 ${G.daily?d:"練習"}\n${G.marks.join("")}\n100万円 → ${man(G.money)}（${pct>=0?"+":""}${pct}%）\n${rank}${url}`;
-  if(G.daily&&!REC.days[jstDay()]){REC.days[jstDay()]={pct,marks:G.marks.join(""),text};REC.plays++;REC.hits+=G.hits;REC.bets+=G.bets}
-  if(G.daily)delete REC.cur;
+  if(G.daily&&!REC.days[day]){REC.days[day]={pct,marks:G.marks.join(""),text};REC.plays++;REC.hits+=G.hits;REC.bets+=G.bets}
+  if(G.daily&&REC.cur&&REC.cur.day===day)delete REC.cur;
   if(G.money>REC.best)REC.best=G.money;
-  const fresh=G.words.filter(w=>!REC.words[w]);for(const w of G.words)REC.words[w]=1;save(REC);
+  const newWords=G.words.filter(w=>!REC.words[w]);for(const w of G.words)REC.words[w]=1;save(REC);
   $("screen").innerHTML=`<div class="col center">
     <div class="rank">${rank}</div>
     <div class="big ${pct>=0?"u":"d"}" id="tot">0%</div>
     <div class="share">${text.replace(url,"")}</div>
     <button class="main" id="copy">結果をコピーして見せる</button>
-    <p class="sec">今日出てきた言葉${fresh.length?`（新しく${fresh.length}つ）`:""}</p>
+    <p class="sec">今日出てきた言葉${newWords.length?`（新しく${newWords.length}つ）`:""}</p>
     <div class="words">${G.words.map(k=>`<div class="term"><b>${TERMS[k][0]}</b>${TERMS[k][1]}</div>`).join("")}</div>
     <button class="ghost" id="again">練習でもう一回</button>
     <button class="ghost" id="tohome">記録を見る</button></div>`;
@@ -289,7 +295,7 @@ function confetti(){
   let f=0;cancelAnimationFrame(confetti.h);(function draw(){x.clearRect(0,0,cv.width,cv.height);for(const p of P){p.y+=p.v;p.a+=.1;x.fillStyle=p.c;x.save();x.translate(p.x+Math.sin(p.a)*8,p.y);x.rotate(p.a);x.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);x.restore()}if(++f<150)confetti.h=requestAnimationFrame(draw);else x.clearRect(0,0,cv.width,cv.height)})()}
 // キーボード：1=買う 2=売る 3=見送る Enter=次へ
 addEventListener("keydown",ev=>{if(ev.target.tagName==="INPUT")return;const m={"1":"buy","2":"sell","3":"pass"}[ev.key];if(m&&$(m)){ev.preventDefault();$(m).click()}});
-$("snd").onclick=()=>{REC.sound=!REC.sound;save(REC);sndIcon();beep("tap")};
+$("snd").onclick=()=>{const on=!REC.sound;sync();REC.sound=on;save(REC);sndIcon();beep("tap")};
 $("home").onclick=()=>{clearInterval(typeText.h);home()};
 if("serviceWorker" in navigator&&location.protocol==="https:"&&/github\.io$/.test(location.hostname))navigator.serviceWorker.register("sw.js").catch(()=>{});
 window.__kabu={build,EVENTS,COMPANIES,TERMS,TURNS};

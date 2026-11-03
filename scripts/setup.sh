@@ -20,8 +20,8 @@ if ! node_ok; then
 fi
 node_ok || fail "Node.js $want 以上が要る（今は $(node -v 2>/dev/null || echo なし)。https://nodejs.org/ か、nvm・fnm で .nvmrc の版を入れる）"
 
-# 検査（qa/）の依存。node_modules が lock より新しければ飛ばす
-if [ ! -f qa/node_modules/.package-lock.json ] || [ qa/package-lock.json -nt qa/node_modules/.package-lock.json ]; then
+# 検査（qa/）の依存。node_modules が lock より新しく、playwright が入っていれば飛ばす
+if [ ! -f qa/node_modules/.package-lock.json ] || [ qa/package-lock.json -nt qa/node_modules/.package-lock.json ] || [ ! -f qa/node_modules/playwright/package.json ]; then
   (cd qa && npm ci --no-audit --no-fund)
 fi
 
