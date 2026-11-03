@@ -130,6 +130,7 @@ try {
   check("共有の文は「題・絵文字5つ・持ち金・称号」", new RegExp(`^株ニュース5本勝負 第\\d+回（\\d+/\\d+）\\n${marks.join("")}\\n100万円 → .+（[+-]?\\d+%）\\n.+\\n#株ニュース5本勝負$`, "u").test(share.trim()), share);
   check("共有の文に答え（ニュースや会社名）が出ない", !list.length || !(await page.evaluate(() => window.__kabu.COMPANIES.some((c) => document.querySelector(".share").textContent.includes(c.n)))));
   check("終わりの画面に今日出てきた言葉が並ぶ", (await page.locator(".words .term").count()) >= 1);
+  { await page.waitForTimeout(1000); const low = await contrastLow(page); check("終わりの画面の文字は背景と十分な濃さの差がある", low.length === 0, low.join(" / ")); }
   check("今日の5本を終えた画面に Ko-fi のひとこと（ただのリンク1行）が出る", money < 1000000 ? (await page.locator(".kofi").count()) === 0 : (await page.locator(".kofi a[href='https://ko-fi.com/satouaaaaa']").count()) === 1);
   { const rival = (await page.textContent(".rival")).replace(/\s+/g, "");
     const exp = await page.evaluate(() => { const s = (str) => { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -200,6 +201,7 @@ try {
   await page.click("#tohome");
   check("上級は1日1回（終えると結果だけ出る）", (await page.locator("#hard").count()) === 0 && (await page.locator(".hardbox").count()) === 1);
   await page.click("#col");
+  { const low = await contrastLow(page); check("実績と図鑑の画面の文字は背景と十分な濃さの差がある", low.length === 0, low.join(" / ")); }
   check("実績が18個あり（遠いものはたたむ）、手に入れた実績が先頭に出る", (await page.locator(".ach > div").count()) === 18 && (await page.locator(".ach > div.got").count()) >= 1 && await page.locator(".ach > div").first().evaluate((d) => d.classList.contains("got")) && (await page.locator("details.more .ach > div").count()) === 18 - 4 - (await page.locator(".ach > div.got").count()));
   check("まだの実績には進み具合が出る", (await page.locator(".ach div:not(.got) .bar").count()) >= 1);
   const seenN = Number((await page.locator(".stats b").nth(3).textContent()).split("/")[0]);
