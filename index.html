@@ -171,11 +171,13 @@ function md(day){return day.slice(5).replace("-","/").replace(/^0/,"").replace("
 function untilNext(){const ms=864e5-(Date.now()+9*3600e3)%864e5,h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4);return h?`${h}時間${m}分`:`${m}分`}
 function tick(){clearInterval(tick.h);const el=$("nextin");if(!el)return;el.textContent=untilNext();tick.h=setInterval(()=>{const e=$("nextin");if(e)e.textContent=untilNext();else clearInterval(tick.h)},3e4)}
 // 1回分の5本。会社は重ねない。上げと下げは最低1本ずつ入れる（全部同じ向きだと読みが要らなくなる）
-function build(seed,hard){
+function build(seed,hard,seen){
   const r=rng(seed);
   for(let tries=0;;tries++){
     const pool=EVENTS.map((e,i)=>i);
     for(let i=pool.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+    // 練習は、まだ読んでいないニュースを先に出す（同じ問題ばかりにならない）
+    if(seen)pool.sort((a,b)=>(seen[EVENTS[a].n]?1:0)-(seen[EVENTS[b].n]?1:0));
     const used=new Set(),picks=[];
     for(const i of pool){const e=EVENTS[i];if(used.has(e.c))continue;used.add(e.c);picks.push(e);if(picks.length===TURNS)break}
     const ups=picks.filter(e=>e.p>0).length,tw=picks.filter(e=>e.x).length;
@@ -309,7 +311,7 @@ function start(mode){
   if(daily&&cur){G={...cur,daily:true,hard,list:cur.list||build(cur.seed,hard)};beep("tap");G.t<TURNS?turn():end();return}
   const seed=hard?seedOf(day+"h"):daily?seedOf(day):Math.floor(Math.random()*2**31);
   // 日付は始めた日で固定（0時をまたいでも、始めた日の記録になる）
-  G={daily,hard,day,seed,list:build(seed,hard),t:0,money:START,marks:[],allIn:hard,words:[],bets:0,hits:0,log:[]};beep("tap");turn();
+  G={daily,hard,day,seed,list:build(seed,hard,daily?null:REC.seen),t:0,money:START,marks:[],allIn:hard,words:[],bets:0,hits:0,log:[]};beep("tap");turn();
 }
 // 今日の5本は1本ずつ記録して、途中で閉じても続きから（やり直しで結果を変えられないように）
 function saveCur(){if(!G.daily)return;sync();if(REC[dk(G)][G.day])return;const c=REC[ck(G)];if(c&&(c.day>G.day||c.day===G.day&&c.t>=G.t))return;REC[ck(G)]={...G};save(REC)}
@@ -380,7 +382,7 @@ function end(){
   const got=achs().filter(a=>a.got&&!before.has(a.id));for(const a of got)REC.ach[a.id]=day;save(REC);
   const st=streak();
   // ふり返り：どの会社のどんなニュースで、どう動いたか（共有の文には出さない）
-  const recap=old?"":G.list.map((e,i)=>`<div><span aria-hidden="true">${G.marks[i]||""}</span><span>${COMPANIES[e.c].n}<small>${e.n}</small></span><b class="${e.p>=0?"u":"d"}">${e.p>=0?"▲":"▼"}${Math.abs(e.p)}%</b></div>`).join("");
+  const recap=old?"":G.list.map((e,i)=>`<div><span aria-hidden="true">${G.marks[i]||""}</span><span>${COMPANIES[e.c].n}${e.x?`<span class="twist" style="margin-left:6px">ひねり</span>`:""}<small>${e.n}</small></span><b class="${e.p>=0?"u":"d"}">${e.p>=0?"▲":"▼"}${Math.abs(e.p)}%</b></div>`).join("");
   $("screen").innerHTML=`<div class="col center">
     <div class="rank">${rank}</div>
     <div class="big ${pct>=0?"u":"d"}" id="tot" aria-live="polite">0%</div>

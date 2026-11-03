@@ -27,6 +27,8 @@ const twist = EVENTS.filter((e) => e.x).length;
 check("見出しの印象と逆に動くひねった問題（x:1）が2割くらい（18〜30%）", twist / EVENTS.length >= .18 && twist / EVENTS.length <= .3, `${twist}/${EVENTS.length}`);
 check("見出しが重ならない", new Set(EVENTS.map((e) => e.n)).size === EVENTS.length);
 check("会社の番号と用語がデータにある", EVENTS.every((e) => COMPANIES[e.c] && TERMS[e.t]), EVENTS.filter((e) => !TERMS[e.t]).map((e) => e.t).join(","));
+{ const per = COMPANIES.map((c, i) => EVENTS.filter((e) => e.c === i).length);
+  check("ニュースは130本以上・どの会社も10本以上（すぐ同じ問題にならない）", EVENTS.length >= 130 && per.every((n) => n >= 10), per.join(",")); }
 const unused = Object.keys(TERMS).filter((k) => !EVENTS.some((e) => e.t === k));
 check("どの用語もどこかのニュースで出てくる", unused.length === 0, unused.join(","));
 check("用語の説明は40字以内", Object.values(TERMS).every(([n, d]) => [...d].length <= 40), Object.values(TERMS).filter(([, d]) => [...d].length > 40).map(([n]) => n).join(","));
@@ -143,6 +145,11 @@ try {
     return { bad: bad.slice(0, 5), n: bad.length, same }; });
   check("上級の5本を3000回組んで、毎回ひねった問題が2本以上・会社が重ならない・上げと下げが両方入る", hb.n === 0, hb.bad.join(","));
   check("上級の5本も同じ日ならだれでも同じ", hb.same === 3000);
+  const pr = await page.evaluate(() => { const { build, EVENTS } = window.__kabu, unseen = [];
+    for (let c = 0; c < 6; c++) unseen.push(...EVENTS.filter((e) => e.c === c && (c % 2 ? e.p > 0 : e.p < 0)).slice(0, 1));
+    const seen = {}; for (const e of EVENTS) if (!unseen.includes(e)) seen[e.n] = 1; let ok = 0;
+    for (let s = 0; s < 1000; s++) if (build(s, false, seen).every((e) => !seen[e.n])) ok++; return ok; });
+  check("練習は、まだ読んでいないニュースを先に出す（1000回）", pr >= 990, `${pr}/1000`);
   check("今日の5本のあと、はじめの画面に上級の5本と実績・図鑑のボタンが出る", (await page.locator("#hard").count()) === 1 && /実績と図鑑（\d+\/14）/.test(await page.textContent("#col")));
   await page.click("#hard");
   check("上級ではいつも全力（全力の切り替えが無い）", (await page.locator("#all").count()) === 0 && /いつも全力/.test(await page.textContent("#screen")));
