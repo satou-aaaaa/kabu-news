@@ -237,8 +237,18 @@ function turn(){
 }
 function typeText(el,s){if(matchMedia("(prefers-reduced-motion: reduce)").matches){el.textContent=s;return}
   let i=0;el.textContent="";clearInterval(typeText.h);typeText.h=setInterval(()=>{el.textContent=s.slice(0,++i);if(i>=s.length)clearInterval(typeText.h)},28)}
+// 答える前に読み直し、別のタブが先に進めていたら保存済みの進み具合に合わせる（答えを食い違わせない）
+function stale(){
+  if(!G.daily)return false;sync();
+  if(REC.days[G.day]){end();return true}
+  const c=REC.cur;
+  if(c&&c.day>G.day){home();return true}
+  if(c&&c.day===G.day&&(c.t!==G.t||c.marks.join()!==G.marks.join())){G={...c,daily:true};toast("別の画面で進めたところから続けます");G.t<TURNS?turn():end();return true}
+  return false;
+}
 function pick(side){
   clearInterval(typeText.h);
+  if(stale())return;
   const e=G.list[G.t],now=e.hist.at(-1),next=Math.round(now*(1+e.p/100));
   const bet=G.money*(G.allIn?1:.5),gain=Math.round(bet*side*e.p/100),before=G.money;
   G.money+=gain;const hit=side!==0&&Math.sign(e.p)===side;

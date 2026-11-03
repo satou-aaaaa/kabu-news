@@ -144,13 +144,12 @@ try {
   await ta.click("#go"); // 古いタブで途中まで
   await tb.click("#go");
   for (let i = 0; i < 5; i++) { await tb.click("#sell"); await tb.click("#next"); }
-  const bPct = await tb.evaluate(() => { const d = JSON.parse(localStorage.getItem("kabu-news-v1")); return Object.values(d.days)[0].pct; });
-  await ta.click("#buy"); await ta.click("#next");
+  const saved = await tb.evaluate(() => Object.values(JSON.parse(localStorage.getItem("kabu-news-v1")).days)[0]);
+  await ta.click("#buy");
   const after = await ta.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")));
-  check("別のタブで今日の5本を終えたら、古いタブが記録を消さない", Object.values(after.days)[0]?.pct === bPct && after.plays === 1 && !after.cur, JSON.stringify({ plays: after.plays, cur: !!after.cur }));
-  for (let i = 1; i < 5; i++) { await ta.click("#buy"); await ta.click("#next"); }
-  const savedText = Object.values(after.days)[0]?.text.replace(/\n[^\n]*github\.io[^\n]*$/, "");
-  check("古いタブで終えても、結果画面と共有の文は先に保存した記録のまま", (await ta.textContent(".share")).trim() === savedText.trim(), (await ta.textContent(".share")).trim());
+  check("別のタブで今日の5本を終えたら、古いタブが記録を消さない", Object.values(after.days)[0]?.pct === saved.pct && after.plays === 1 && !after.cur, JSON.stringify({ plays: after.plays, cur: !!after.cur }));
+  const shareA = (await ta.textContent(".share")).trim();
+  check("古いタブで答えると、結果画面と共有の文は先に保存した記録になる", shareA === saved.text.replace(/\n[^\n]*github\.io[^\n]*$/, "").trim(), shareA);
   await ctxTab.close();
 
   const ctxCur = await browser.newContext({ viewport: { width: 390, height: 800 } });
@@ -158,10 +157,25 @@ try {
   await ca.goto(url); await ca.click("#go"); await ca.click("#buy"); await ca.click("#next"); // 1本目まで
   await cb.goto(url); await cb.click("#go"); // 続きから
   for (let i = 0; i < 2; i++) { await cb.click("#sell"); await cb.click("#next"); } // 3本目まで
-  await ca.click("#buy"); // 古いタブで2本目に答える
-  const curT = await ca.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).cur?.t);
-  check("古いタブで答えても、先に進んだ途中の記録を戻さない（答えた問題をやり直せない）", curT === 3, String(curT));
+  await ca.click("#buy"); // 古いタブで2本目に答えようとする
+  const c1 = await ca.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).cur);
+  check("古いタブで答えても、先に進んだ途中の記録を戻さず、その続きに合わせる", c1?.t === 3 && c1.marks.length === 3 && (await ca.locator(".steps i:nth-child(4).on").count()) === 1, String(c1?.t));
   await ctxCur.close();
+
+  // 2つのタブで同時に始め、片方が先に答えたあと、もう片方で別の答えをしても、先の答えが残る
+  const ctxRace = await browser.newContext({ viewport: { width: 390, height: 800 } });
+  const ra = await ctxRace.newPage(), rb = await ctxRace.newPage();
+  await ra.goto(url); await rb.goto(url);
+  await ra.click("#go"); await rb.click("#go"); // どちらも1本目
+  await ra.click("#buy"); await ra.click("#next");
+  const firstMarks = await ra.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).cur.marks.join(""));
+  await rb.click("#sell"); // 古いタブで1本目に別の答え
+  const r1 = await rb.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).cur);
+  check("同時に始めた古いタブで別の答えをしても、先の答えが変わらない", r1.t === 1 && r1.marks.join("") === firstMarks && (await rb.locator(".steps i:nth-child(2).on").count()) === 1, JSON.stringify({ t: r1.t, m: r1.marks.join("") }));
+  for (let i = 1; i < 5; i++) { await rb.click("#sell"); await rb.click("#next"); }
+  const rd = await rb.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")));
+  check("そのまま古いタブで最後まで遊ぶと、記録の1本目は先の答えのまま", Object.values(rd.days)[0]?.marks.startsWith(firstMarks) && rd.plays === 1, Object.values(rd.days)[0]?.marks);
+  await ctxRace.close();
 
   // 6. 記録が使えない端末（プライベートモードなど）でも遊べる
   const ctxNo = await browser.newContext({ viewport: { width: 390, height: 800 } });
