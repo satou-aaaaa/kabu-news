@@ -24,7 +24,7 @@ const longs = EVENTS.filter((e) => [...e.n].length > 22 || [...e.o].length > 22)
 check("見出しと「なぜ動いたか」は22字以内（一目で読める）", longs.length === 0, longs.map((e) => e.n).join(","));
 check("値動きは±1〜20%で、0が無い", EVENTS.every((e) => Number.isInteger(e.p) && e.p !== 0 && Math.abs(e.p) <= 20));
 const twist = EVENTS.filter((e) => e.x).length;
-check("見出しの印象と逆に動くひねった問題（x:1）が2割くらい（18%以上）", twist / EVENTS.length >= .18, `${twist}/${EVENTS.length}`);
+check("見出しの印象と逆に動くひねった問題（x:1）が2割くらい（18〜30%）", twist / EVENTS.length >= .18 && twist / EVENTS.length <= .3, `${twist}/${EVENTS.length}`);
 check("見出しが重ならない", new Set(EVENTS.map((e) => e.n)).size === EVENTS.length);
 check("会社の番号と用語がデータにある", EVENTS.every((e) => COMPANIES[e.c] && TERMS[e.t]), EVENTS.filter((e) => !TERMS[e.t]).map((e) => e.t).join(","));
 const unused = Object.keys(TERMS).filter((k) => !EVENTS.some((e) => e.t === k));
@@ -144,7 +144,20 @@ try {
   await ta.click("#buy"); await ta.click("#next");
   const after = await ta.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")));
   check("別のタブで今日の5本を終えたら、古いタブが記録を消さない", Object.values(after.days)[0]?.pct === bPct && after.plays === 1 && !after.cur, JSON.stringify({ plays: after.plays, cur: !!after.cur }));
+  for (let i = 1; i < 5; i++) { await ta.click("#buy"); await ta.click("#next"); }
+  const savedText = Object.values(after.days)[0]?.text.replace(/\n[^\n]*github\.io[^\n]*$/, "");
+  check("古いタブで終えても、結果画面と共有の文は先に保存した記録のまま", (await ta.textContent(".share")).trim() === savedText.trim(), (await ta.textContent(".share")).trim());
   await ctxTab.close();
+
+  const ctxCur = await browser.newContext({ viewport: { width: 390, height: 800 } });
+  const ca = await ctxCur.newPage(), cb = await ctxCur.newPage();
+  await ca.goto(url); await ca.click("#go"); await ca.click("#buy"); await ca.click("#next"); // 1本目まで
+  await cb.goto(url); await cb.click("#go"); // 続きから
+  for (let i = 0; i < 2; i++) { await cb.click("#sell"); await cb.click("#next"); } // 3本目まで
+  await ca.click("#buy"); // 古いタブで2本目に答える
+  const curT = await ca.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).cur?.t);
+  check("古いタブで答えても、先に進んだ途中の記録を戻さない（答えた問題をやり直せない）", curT === 3, String(curT));
+  await ctxCur.close();
 
   // 6. 記録が使えない端末（プライベートモードなど）でも遊べる
   const ctxNo = await browser.newContext({ viewport: { width: 390, height: 800 } });

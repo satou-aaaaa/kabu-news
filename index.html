@@ -221,7 +221,7 @@ function start(daily){
   G={daily,day,seed,list:build(seed),t:0,money:START,marks:[],allIn:false,words:[],bets:0,hits:0};beep("tap");turn();
 }
 // 今日の5本は1本ずつ記録して、途中で閉じても続きから（やり直しで結果を変えられないように）
-function saveCur(){if(!G.daily)return;sync();if(REC.days[G.day])return;REC.cur={...G};save(REC)}
+function saveCur(){if(!G.daily)return;sync();if(REC.days[G.day])return;const c=REC.cur;if(c&&(c.day>G.day||c.day===G.day&&c.t>=G.t))return;REC.cur={...G};save(REC)}
 function turn(){
   const e=G.list[G.t],now=e.hist.at(-1);setMoney();
   $("screen").innerHTML=`${steps()}
@@ -263,11 +263,13 @@ function pick(side){
   $("next").onclick=()=>{G.t<TURNS?turn():end()};$("next").focus({preventScroll:true});
 }
 function end(){
-  const pct=Math.round((G.money/START-1)*100),rank=RANKS.find(r=>pct>=r[0])[1];
   sync();const day=G.day||jstDay(),d=day.slice(5).replace("-","/").replace(/^0/,"").replace("/0","/");
+  // 別のタブで今日の5本を先に終えていたら、その記録を見せる（画面と記録を食い違わせない）
+  const old=G.daily&&REC.days[day];
+  const pct=old?old.pct:Math.round((G.money/START-1)*100),rank=RANKS.find(r=>pct>=r[0])[1];
   const url=/^https:/.test(location.protocol)&&/github\.io$/.test(location.hostname)?"\n"+location.origin+location.pathname:"";
-  const text=`株ニュース5本勝負 ${G.daily?d:"練習"}\n${G.marks.join("")}\n100万円 → ${man(G.money)}（${pct>=0?"+":""}${pct}%）\n${rank}${url}`;
-  if(G.daily&&!REC.days[day]){REC.days[day]={pct,marks:G.marks.join(""),text};REC.plays++;REC.hits+=G.hits;REC.bets+=G.bets}
+  const text=old?old.text:`株ニュース5本勝負 ${G.daily?d:"練習"}\n${G.marks.join("")}\n100万円 → ${man(G.money)}（${pct>=0?"+":""}${pct}%）\n${rank}${url}`;
+  if(G.daily&&!old){REC.days[day]={pct,marks:G.marks.join(""),text};REC.plays++;REC.hits+=G.hits;REC.bets+=G.bets}
   if(G.daily&&REC.cur&&REC.cur.day===day)delete REC.cur;
   if(G.money>REC.best)REC.best=G.money;
   const newWords=G.words.filter(w=>!REC.words[w]);for(const w of G.words)REC.words[w]=1;save(REC);
