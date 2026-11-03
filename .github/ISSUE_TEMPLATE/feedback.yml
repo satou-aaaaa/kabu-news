@@ -1,0 +1,23 @@
+name: 感想
+description: 遊んだ感想を送る（名前やメールは書かないでください）
+title: "[感想] "
+labels: ["感想"]
+body:
+  - type: markdown
+    attributes:
+      value: 遊んでくれてありがとうございます。名前・メール・住所など、あなたが分かることは書かないでください。
+  - type: dropdown
+    id: fun
+    attributes:
+      label: 楽しさ
+      options: ["5 とても楽しい", "4 楽しい", "3 ふつう", "2 いまいち", "1 つまらない"]
+    validations:
+      required: true
+  - type: textarea
+    id: good
+    attributes:
+      label: よかった所
+  - type: textarea
+    id: wish
+    attributes:
+      label: 直してほしい所・あったらいいもの

@@ -139,6 +139,11 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .newach{display:flex;flex-direction:column;gap:6px}
 .newach div{display:flex;align-items:center;gap:10px;background:#f4c04e1f;border:1px solid var(--gold);border-radius:10px;padding:8px 12px;text-align:left}
 .newach i{font-style:normal;font-size:26px}.newach small{display:block;color:var(--gold);font-size:11px}
+.fb{display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--panel);border-radius:12px;padding:12px}
+.fb small{color:var(--muted);font-size:13px}
+.fb div{display:flex;gap:12px}
+.fb div a{display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:#ffffff14;font-size:28px;text-decoration:none}
+.fbtext{color:var(--gold);font-size:13px;min-height:44px;display:flex;align-items:center}
 canvas#fx{position:fixed;inset:0;pointer-events:none;width:100%;height:100%;z-index:4}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -182,15 +187,19 @@ function build(seed,hard,seen){
     for(const i of pool){const e=EVENTS[i];if(used.has(e.c))continue;used.add(e.c);picks.push(e);if(picks.length===TURNS)break}
     const ups=picks.filter(e=>e.p>0).length,tw=picks.filter(e=>e.x).length;
     // 上級は見出しの印象と逆に動く問題を2本以上
-    if((ups>0&&ups<TURNS&&(!hard||tw>=2))||tries>(hard?400:20)) return picks.map(e=>{const base=400+Math.floor(r()*36)*100,h=[base];
-      for(let k=0;k<11;k++)h.push(Math.max(50,Math.round(h[k]*(1+(r()-.5)*.07))));return{...e,hist:h}});
+    if((ups>0&&ups<TURNS&&(!hard||tw>=2))||tries>(hard?400:20)) return withHist(picks,r);
   }
 }
+function withHist(picks,r){return picks.map(e=>{const base=400+Math.floor(r()*36)*100,h=[base];
+  for(let k=0;k<11;k++)h.push(Math.max(50,Math.round(h[k]*(1+(r()-.5)*.07))));return{...e,hist:h}})}
+// 復習：はずれたニュースから最大5本（当てると復習の一覧から消える）
+function reviewList(seed){const r=rng(seed),l=EVENTS.filter(e=>REC.miss[e.n]);
+  for(let i=l.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[l[i],l[j]]=[l[j],l[i]]}return withHist(l.slice(0,TURNS),r)}
 
 // ---- 記録（端末の中だけ） ----
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch{return{}}}
 function save(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
-const fresh=()=>Object.assign({days:{},best:0,hits:0,bets:0,plays:0,sound:false,words:{},hdays:{},hbest:0,seen:{},co:{},tw:[0,0],ai:0,ach:{}},load());
+const fresh=()=>Object.assign({days:{},best:0,hits:0,bets:0,plays:0,sound:false,words:{},hdays:{},hbest:0,seen:{},co:{},tw:[0,0],ai:0,ach:{},miss:{}},load());
 // 今日の5本（days・cur）と上級の5本（hdays・hcur）は記録の置き場所だけがちがう
 const dk=g=>g.hard?"hdays":"days",ck=g=>g.hard?"hcur":"cur";
 let REC=fresh();
@@ -262,6 +271,7 @@ function home(){
     <button class="${today?"ghost":"main"}" id="go">${today?"練習でもう一回":REC.cur&&REC.cur.day===jstDay()?`今日の5本の続き（${REC.cur.t+1}本目から）`:`第${roundNo(jstDay())}回 今日の5本をはじめる`}</button>
     ${today?"":`<p class="sub">だれでも同じ5本・1日1回・3分${st?`　<span class="fire">🔥 ${st}日連続</span>`:""}</p>`}
     ${today?hardBox():first?"":`<p class="sub">🔒 上級の5本は、今日の5本のあとで</p>`}
+    ${first||!Object.keys(REC.miss).length?"":`<button class="ghost" id="rev">まちがえたニュースの復習（${Object.keys(REC.miss).length}本）</button>`}
     ${first?"":`<button class="ghost" id="col">実績と図鑑（${achs().filter(a=>a.got).length}/${ACH.length}）</button>`}
     ${first?"":`<p class="sec">あなたの記録</p>
     <div class="stats"><div><b>${REC.plays}</b><small>遊んだ日</small></div><div><b>${streak()}</b><small>連続日数</small></div>
@@ -270,7 +280,7 @@ function home(){
     <button class="ghost" id="how">遊び方と覚えた言葉</button>`;
   $("go").onclick=()=>start(!today);$("how").onclick=howto;
   if(today)bindShare(today.text);tick();
-  if($("hard"))$("hard").onclick=()=>start("hard");if($("col"))$("col").onclick=collection;
+  if($("hard"))$("hard").onclick=()=>start("hard");if($("col"))$("col").onclick=collection;if($("rev"))$("rev").onclick=()=>start("review");
 }
 function hardBox(){const h=REC.hdays[jstDay()],c=REC.hcur&&REC.hcur.day===jstDay()?REC.hcur:null;
   if(h)return `<div class="hardbox"><b>上級の5本</b>　${h.marks}　<span class="${h.pct>=0?"u":"d"}">${h.pct>=0?"+":""}${h.pct}%</span></div>`;
@@ -300,18 +310,20 @@ function howto(){
     <p class="sec">覚えた言葉（${ws.length}/${Object.keys(TERMS).length}）</p>
     <div class="words">${ws.length?ws.map(k=>`<div class="term"><b>${TERMS[k][0]}</b>${TERMS[k][1]}</div>`).join(""):`<div class="term">遊ぶと、ニュースに出てきた株の言葉がここにたまります。</div>`}</div>
     <button class="main" id="back">もどる</button>
+    <p class="note"><a href="${fbUrl("","遊び方の画面から")}" target="_blank" rel="noopener" style="color:var(--gold)">感想・直してほしい所を送る</a>（GitHub）</p>
     <p class="note">気に入ったら <a href="https://ko-fi.com/satouaaaaa" target="_blank" rel="noopener" style="color:var(--gold)">Ko-fi で応援</a>（遊ぶのはずっと無料）</p></div>`;
   $("back").onclick=home;
 }
 function start(mode){
-  const daily=!!mode,hard=mode==="hard",g={hard};
+  const review=mode==="review",daily=!!mode&&!review,hard=mode==="hard",g={hard};
   sync();const day=jstDay(),cur=REC[ck(g)]&&REC[ck(g)].day===day?REC[ck(g)]:null;
   if(daily&&REC[dk(g)][day]||hard&&!REC.days[day]){home();return}
   // 続きは保存した5本をそのまま使う（途中で data.js が変わっても問題が入れ替わらない）
   if(daily&&cur){G={...cur,daily:true,hard,list:cur.list||build(cur.seed,hard)};beep("tap");G.t<TURNS?turn():end();return}
   const seed=hard?seedOf(day+"h"):daily?seedOf(day):Math.floor(Math.random()*2**31);
   // 日付は始めた日で固定（0時をまたいでも、始めた日の記録になる）
-  G={daily,hard,day,seed,list:build(seed,hard,daily?null:REC.seen),t:0,money:START,marks:[],allIn:hard,words:[],bets:0,hits:0,log:[]};beep("tap");turn();
+  const list=review?reviewList(seed):build(seed,hard,daily?null:REC.seen);if(!list.length){home();return}
+  G={daily,hard,review,day,seed,list,t:0,money:START,marks:[],allIn:hard,words:[],bets:0,hits:0,log:[]};beep("tap");turn();
 }
 // 今日の5本は1本ずつ記録して、途中で閉じても続きから（やり直しで結果を変えられないように）
 function saveCur(){if(!G.daily)return;sync();if(REC[dk(G)][G.day])return;const c=REC[ck(G)];if(c&&(c.day>G.day||c.day===G.day&&c.t>=G.t))return;REC[ck(G)]={...G};save(REC)}
@@ -319,7 +331,7 @@ function turn(){
   const e=G.list[G.t],now=e.hist.at(-1);setMoney();
   $("screen").innerHTML=`${steps()}
     <div class="card flip">${coHead(e,now)}${chart(e.hist)}</div>
-    <div class="news" aria-live="polite"><small>ニュース ${G.t+1}/${TURNS}</small><span class="typed" id="nw"></span></div>
+    <div class="news" aria-live="polite"><small>${G.review?"復習 ":""}ニュース ${G.t+1}/${G.list.length}</small><span class="typed" id="nw"></span></div>
     <div class="acts">
       <button class="buy" id="buy">買う<small>上がると思う</small></button><button class="sell" id="sell">売る<small>下がると思う</small></button>
       <button class="pass" id="pass">今回は見送る</button></div>
@@ -358,12 +370,12 @@ function pick(side){
       <div class="gain ${gain>=0?"u":"d"}">${side===0?"お金は動かず":sign(gain)+man(Math.abs(gain))}${G.allIn&&side?"（全力）":""}</div>
       <div class="term"><b>${tn}</b>${td}</div>
     </div>
-    <button class="main" id="next">${G.t+1<TURNS?"次のニュース":"結果を見る"}</button>`;
+    <button class="main" id="next">${G.t+1<G.list.length?"次のニュース":"結果を見る"}</button>`;
   countUp($("pct"),0,Math.abs(e.p),v=>`${e.p>=0?"▲":"▼"}${Math.round(v)}%`,600);
   countUp($("pv"),now,next,v=>Math.round(v).toLocaleString(),600);
   if(side===0)beep("tap");else if(hit){beep("hit");if(Math.abs(e.p)>=12||G.allIn)confetti()}else{beep("miss");$("card").classList.add("shake")}
   G.t++;saveCur();
-  $("next").onclick=()=>{G.t<TURNS?turn():end()};$("next").focus({preventScroll:true});
+  $("next").onclick=()=>{G.t<G.list.length?turn():end()};$("next").focus({preventScroll:true});
 }
 function end(){
   sync();const day=G.day||jstDay(),d=md(day);
@@ -371,12 +383,12 @@ function end(){
   const old=G.daily&&REC[dk(G)][day],before=new Set(achs().filter(a=>a.got).map(a=>a.id));
   const pct=old?old.pct:Math.round((G.money/START-1)*100),rank=RANKS.find(r=>pct>=r[0])[1];
   const url=/^https:/.test(location.protocol)&&/github\.io$/.test(location.hostname)?"\n"+location.origin+location.pathname:"";
-  const text=old?old.text:`株ニュース5本勝負 ${G.daily?`${G.hard?"上級 ":""}第${roundNo(day)}回（${d}）`:"練習"}\n${G.marks.join("")}\n100万円 → ${man(G.money)}（${pct>=0?"+":""}${pct}%）\n${rank}\n${TAG}${url}`;
+  const text=old?old.text:`株ニュース5本勝負 ${G.daily?`${G.hard?"上級 ":""}第${roundNo(day)}回（${d}）`:G.review?"復習":"練習"}\n${G.marks.join("")}\n100万円 → ${man(G.money)}（${pct>=0?"+":""}${pct}%）\n${rank}\n${TAG}${url}`;
   if(G.daily&&!old){REC[dk(G)][day]={pct,marks:G.marks.join(""),text};if(!G.hard){REC.plays++;REC.hits+=G.hits;REC.bets+=G.bets}}
   if(G.daily&&REC[ck(G)]&&REC[ck(G)].day===day)delete REC[ck(G)];
-  const bk=G.hard?"hbest":"best";if(!old&&G.t>=TURNS&&G.money>REC[bk])REC[bk]=G.money;
+  const bk=G.hard?"hbest":"best";if(!old&&!G.review&&G.t>=TURNS&&G.money>REC[bk])REC[bk]=G.money;
   // 図鑑は練習も数える。腕前（ひねった問題・全力）は今日の5本と上級だけ
-  if(!old)for(const l of G.log||[]){REC.seen[l.n]=1;const c=REC.co[l.c]||(REC.co[l.c]=[0,0,0]);c[0]++;if(l.s){c[1]++;c[2]+=l.h}
+  if(!old)for(const l of G.log||[]){REC.seen[l.n]=1;if(l.s&&!l.h)REC.miss[l.n]=1;else if(l.h)delete REC.miss[l.n];const c=REC.co[l.c]||(REC.co[l.c]=[0,0,0]);c[0]++;if(l.s){c[1]++;c[2]+=l.h}
     if(G.daily){if(l.x&&l.s){REC.tw[0]++;REC.tw[1]+=l.h}if(l.a&&l.h)REC.ai++}}
   const newWords=G.words.filter(w=>!REC.words[w]);for(const w of G.words)REC.words[w]=1;
   const got=achs().filter(a=>a.got&&!before.has(a.id));for(const a of got)REC.ach[a.id]=day;save(REC);
@@ -395,12 +407,17 @@ function end(){
     ${recap?`<p class="sec">ふり返り</p><div class="recap">${recap}</div>`:""}
     <p class="sec">今日出てきた言葉${newWords.length?`（新しく${newWords.length}つ）`:""}</p>
     <div class="words">${G.words.map(k=>`<div class="term"><b>${TERMS[k][0]}</b>${TERMS[k][1]}</div>`).join("")}</div>
+    ${fbRow(G.daily?`${G.hard?"上級 ":""}第${roundNo(day)}回`:G.review?"復習":"練習")}
     <button class="ghost" id="again">練習でもう一回</button>
     <button class="ghost" id="tohome">記録を見る</button></div>`;
   countUp($("tot"),0,pct,v=>`${v>=0?"+":"−"}${Math.abs(Math.round(v))}%`,900);
   beep("end");if(pct>=20)confetti();
   bindShare(text);tick();$("again").onclick=()=>start(false);$("tohome").onclick=home;if($("hard"))$("hard").onclick=()=>start("hard");
 }
+// 感想：GitHub の感想フォームを開くただのリンク（ゲームからは何も送らない。名前やメールは聞かない）
+const FEEDBACK="https://github.com/satou-aaaaa/kabu-news/issues/new?template=feedback.yml";
+function fbUrl(fun,title){return FEEDBACK+(fun?"&fun="+encodeURIComponent(fun):"")+"&title="+encodeURIComponent("[感想] "+(title||""))}
+function fbRow(title){return `<div class="fb"><small>今日の5本はどうでしたか？</small><div>${[["😀","5 とても楽しい"],["🙂","3 ふつう"],["😕","2 いまいち"]].map(([e,f])=>`<a href="${fbUrl(f,title)}" target="_blank" rel="noopener" aria-label="${f.slice(2)}">${e}</a>`).join("")}</div><a class="fbtext" href="${fbUrl("",title)}" target="_blank" rel="noopener">感想・直してほしい所を送る</a></div>`}
 // 共有：スマホは共有シートを出し、無ければコピー。X と LINE は投稿画面を開くだけ（送るのは遊ぶ人）
 const TAG="#株ニュース5本勝負";
 function shown(text){return text.replace(/\n?https?:\/\/\S+$/,"")}
