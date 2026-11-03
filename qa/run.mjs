@@ -200,6 +200,15 @@ try {
   { const c = await page.evaluate(() => { const d = new Date(Date.now() + 9 * 3600e3), n = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
       return { n, days: [...document.querySelectorAll(".cal i")].filter((i) => i.textContent.trim()).length, colored: document.querySelectorAll(".cal i.pu,.cal i.pd").length, today: document.querySelectorAll(".cal i.today").length, w: document.querySelector(".cal").scrollWidth <= document.querySelector(".cal").clientWidth }; });
     check("図鑑に今月のカレンダーがあり、遊んだ今日に色が付く（はみ出さない）", c.days === c.n && c.colored >= 1 && c.today === 1 && c.w, JSON.stringify(c)); }
+  { const btn = page.locator(".cobtn").first(), co = +(await btn.getAttribute("data-co")), bh = await btn.evaluate((b) => b.getBoundingClientRect().height);
+    await btn.click(); const heads = [];
+    for (let i = 0; i < 5; i++) { await page.waitForFunction(() => document.querySelector("#nw")?.textContent.length > 3); await page.waitForTimeout(700);
+      heads.push(await page.evaluate((h) => window.__kabu.EVENTS.find((e) => e.n.startsWith(h)), await page.textContent("#nw")));
+      await page.click("#pass"); await page.click("#next"); }
+    const share = (await page.textContent(".share")).trim(), name = await page.evaluate((i) => window.__kabu.COMPANIES[i].n, co);
+    check("図鑑の「この会社で練習」は、その会社のニュースだけを5本出し、共有の文に会社名を出さない", heads.every((e) => e.c === co) && new Set(heads.map((e) => e.n)).size === 5 && !share.includes(name) && /練習/.test(share), share);
+    check("この会社で練習のボタンは押しやすい大きさ（高さ44px以上）", bh >= 44, String(bh));
+    await page.click("#tohome"); await page.click("#col"); }
   check("ひねった問題の的中率が出る", /^(\d+%|-)$/.test(await page.locator(".stats b").first().textContent()));
   await page.click("#back");
   // 復習：はずれたニュースを集めて解き直す。当てると一覧から消える

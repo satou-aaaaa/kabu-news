@@ -147,6 +147,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .ach div.got,.zukan div:not(.no){opacity:1}
 .ach i,.zukan i{font-style:normal;font-size:24px}
 .ach small,.zukan small{color:var(--muted);font-size:11px}
+.cobtn{margin-top:6px;min-height:44px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--gold);font:inherit;font-size:12px;font-weight:900;cursor:pointer}.sec small{font-weight:400;letter-spacing:0;margin-left:4px}
 .bar{display:block;height:5px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:4px}
 .bar span{display:block;height:100%;background:var(--gold)}
 .newach{display:flex;flex-direction:column;gap:6px}
@@ -230,6 +231,8 @@ function chalList(ch){return withHist(ch.ids.map(i=>EVENTS[i]),rng(seedOf(ch.cod
 let CHAL=(()=>{try{return chalParse(new URLSearchParams(location.search))}catch{return null}})();
 function dareUrl(list,pct){return PAGE+"?c="+chalCode(list)+"&p="+pct}
 // 連続的中チャレンジ：全部のニュースを毎回ちがう順に（外れるまで続く）
+// 会社しばりの練習：その会社のニュースから5本（毎回ちがう順）
+function coList(i,seed){const r=rng(seed),l=EVENTS.filter(e=>e.c===i);for(let k=l.length-1;k>0;k--){const j=Math.floor(r()*(k+1));[l[k],l[j]]=[l[j],l[k]]}return withHist(l.slice(0,TURNS),r)}
 function survList(seed){const r=rng(seed),l=EVENTS.slice();for(let i=l.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[l[i],l[j]]=[l[j],l[i]]}return withHist(l,r)}
 function reviewList(seed){const r=rng(seed),l=EVENTS.filter(e=>REC.miss[e.n]);
   for(let i=l.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[l[i],l[j]]=[l[j],l[i]]}return withHist(l.slice(0,TURNS),r)}
@@ -374,10 +377,10 @@ function collection(){
       r.sort((a,b)=>a[1]-b[1]);const row=([k,q,v])=>`<div><b>${TERMS[k][0]}</b><span class="bar"><span style="width:${Math.round(q*100)}%"></span></span><small>${v[1]}/${v[0]}</small></div>`;
       return `<p class="sec">ニュースの種類ごとの的中</p><div class="tmk"><small>にがて</small>${r.slice(0,3).map(row).join("")}${r.length>3?`<small>とくい</small>${r.slice(-Math.min(3,r.length-3)).reverse().map(row).join("")}`:""}</div>`})()}
     ${calendar()}
-    <p class="sec">会社図鑑</p>
-    <div class="zukan">${COMPANIES.map((c,i)=>{const s=REC.co[i];return s?`<div><i>${c.e}</i><b>${c.n}</b><small>${c.s}・読んだ${s[0]}回・的中${s[2]}/${s[1]}</small></div>`:`<div class="no"><i>？</i><b>？？？</b><small>まだ読んでいない</small></div>`}).join("")}</div>
+    <p class="sec">会社図鑑<small>（読んだ会社は、その会社のニュースだけで練習できる）</small></p>
+    <div class="zukan">${COMPANIES.map((c,i)=>{const s=REC.co[i];return s?`<div><i>${c.e}</i><b>${c.n}</b><small>${c.s}・読んだ${s[0]}回・的中${s[2]}/${s[1]}</small><button class="cobtn" data-co="${i}">この会社で練習</button></div>`:`<div class="no"><i>？</i><b>？？？</b><small>まだ読んでいない</small></div>`}).join("")}</div>
     <button class="main" id="back">もどる</button></div>`;
-  $("back").onclick=home;
+  $("back").onclick=home;document.querySelectorAll(".cobtn").forEach(b=>b.onclick=()=>start("co",+b.dataset.co));
 }
 // 今月のカレンダー：遊んだ日に成績の色（上級も遊んだ日は⛰️）
 function calendar(){const t=jstDay(),y=+t.slice(0,4),m=+t.slice(5,7),n=new Date(Date.UTC(y,m,0)).getUTCDate(),w0=new Date(Date.UTC(y,m-1,1)).getUTCDay();
@@ -424,15 +427,15 @@ function quiz(){
     if(ok===5)confetti();$("qagain").onclick=quiz;$("back").onclick=howto};
   show();
 }
-function start(mode){
-  const review=mode==="review",surv=mode==="surv",chal=mode==="chal"&&CHAL,daily=!!mode&&!review&&!surv&&mode!=="chal",hard=mode==="hard",g={hard};
+function start(mode,co){
+  const review=mode==="review",surv=mode==="surv",chal=mode==="chal"&&CHAL,daily=mode===true||mode==="hard",hard=mode==="hard",g={hard};
   sync();const day=jstDay(),cur=REC[ck(g)]&&REC[ck(g)].day===day?REC[ck(g)]:null;
   if(daily&&REC[dk(g)][day]||hard&&!REC.days[day]){home();return}
   // 続きは保存した5本をそのまま使う（途中で data.js が変わっても問題が入れ替わらない）
   if(daily&&cur){G={...cur,daily:true,hard,list:cur.list||build(cur.seed,hard)};beep("tap");G.t<TURNS?turn():end();return}
   const seed=hard?seedOf(day+"h"):daily?seedOf(day):Math.floor(Math.random()*2**31);
   // 日付は始めた日で固定（0時をまたいでも、始めた日の記録になる）
-  const list=chal?chalList(CHAL):review?reviewList(seed):surv?survList(seed):build(seed,hard,daily?null:REC.seen);if(!list.length){home();return}
+  const list=mode==="co"?coList(co,seed):chal?chalList(CHAL):review?reviewList(seed):surv?survList(seed):build(seed,hard,daily?null:REC.seen);if(!list.length){home();return}
   G={daily,hard,review,surv,chal:chal?{p:CHAL.p}:null,day,seed,list,t:0,money:START,marks:[],allIn:hard,words:[],bets:0,hits:0,log:[]};beep("tap");turn();
 }
 // 今日の5本は1本ずつ記録して、途中で閉じても続きから（やり直しで結果を変えられないように）
