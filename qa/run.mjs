@@ -196,6 +196,9 @@ try {
   { const tm = await page.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).tm);
     const ok = Object.values(tm).every(([b, h]) => b >= 1 && h >= 0 && h <= b), shown = await page.locator(".tmk div").count();
     check("ニュースの種類（用語）ごとの的中を数え、2回以上張った種類が2つ以上あれば、にがて順に並ぶ", ok && (Object.values(tm).filter(([b]) => b >= 2).length < 2 ? shown === 0 : shown >= 2), JSON.stringify(tm)); }
+  { const c = await page.evaluate(() => { const d = new Date(Date.now() + 9 * 3600e3), n = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+      return { n, days: [...document.querySelectorAll(".cal i")].filter((i) => i.textContent.trim()).length, colored: document.querySelectorAll(".cal i.pu,.cal i.pd").length, today: document.querySelectorAll(".cal i.today").length, w: document.querySelector(".cal").scrollWidth <= document.querySelector(".cal").clientWidth }; });
+    check("図鑑に今月のカレンダーがあり、遊んだ今日に色が付く（はみ出さない）", c.days === c.n && c.colored >= 1 && c.today === 1 && c.w, JSON.stringify(c)); }
   check("ひねった問題の的中率が出る", /^(\d+%|-)$/.test(await page.locator(".stats b").first().textContent()));
   await page.click("#back");
   // 復習：はずれたニュースを集めて解き直す。当てると一覧から消える

@@ -110,6 +110,10 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .ttl b{color:var(--gold);font-size:16px}.ttl small,.wkbox small{color:var(--muted);font-size:12px}
 .wkbox .sec{display:flex;justify-content:space-between;gap:8px}.wkbox>div{display:grid;grid-template-columns:24px 1fr 64px 36px;align-items:center;gap:6px;font-size:13px}
 .wkbox .bar,.ttl .bar{margin:0}.wkbox>div.got b{color:var(--muted);text-decoration:line-through}.chain{color:var(--gold);font-weight:900}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}.cal small{color:var(--muted);font-size:11px}
+.cal i{font-style:normal;font-size:12px;aspect-ratio:1;display:grid;place-items:center;border-radius:6px;background:var(--panel);position:relative;color:var(--muted)}
+.cal i:empty{background:none}.cal i.pu{background:var(--up);color:#fff;font-weight:900}.cal i.pd{background:var(--down);color:#fff;font-weight:900}
+.cal i.today{outline:2px solid var(--gold)}.cal i b{position:absolute;right:-2px;top:-6px;font-size:10px}
 .dare{background:var(--panel);border:2px solid var(--gold);border-radius:10px;padding:12px;display:grid;gap:8px;text-align:center}.dare small{color:var(--muted)}
 .sec{font-size:12px;color:var(--muted);letter-spacing:.1em;font-weight:700;margin:0}
 .words{display:flex;flex-direction:column;gap:6px}
@@ -363,11 +367,18 @@ function collection(){
     ${(()=>{const r=Object.entries(REC.tm).filter(([k,v])=>v[0]>=2&&TERMS[k]).map(([k,v])=>[k,v[1]/v[0],v]);if(r.length<2)return "";
       r.sort((a,b)=>a[1]-b[1]);const row=([k,q,v])=>`<div><b>${TERMS[k][0]}</b><span class="bar"><span style="width:${Math.round(q*100)}%"></span></span><small>${v[1]}/${v[0]}</small></div>`;
       return `<p class="sec">ニュースの種類ごとの的中</p><div class="tmk"><small>にがて</small>${r.slice(0,3).map(row).join("")}${r.length>3?`<small>とくい</small>${r.slice(-Math.min(3,r.length-3)).reverse().map(row).join("")}`:""}</div>`})()}
+    ${calendar()}
     <p class="sec">会社図鑑</p>
     <div class="zukan">${COMPANIES.map((c,i)=>{const s=REC.co[i];return s?`<div><i>${c.e}</i><b>${c.n}</b><small>${c.s}・読んだ${s[0]}回・的中${s[2]}/${s[1]}</small></div>`:`<div class="no"><i>？</i><b>？？？</b><small>まだ読んでいない</small></div>`}).join("")}</div>
     <button class="main" id="back">もどる</button></div>`;
   $("back").onclick=home;
 }
+// 今月のカレンダー：遊んだ日に成績の色（上級も遊んだ日は⛰️）
+function calendar(){const t=jstDay(),y=+t.slice(0,4),m=+t.slice(5,7),n=new Date(Date.UTC(y,m,0)).getUTCDate(),w0=new Date(Date.UTC(y,m-1,1)).getUTCDay();
+  const cells=[...Array(w0)].map(()=>`<i></i>`);let played=0;
+  for(let d=1;d<=n;d++){const k=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`,r=REC.days[k],h=REC.hdays[k];if(r)played++;
+    cells.push(`<i class="${r?(r.pct>=0?"pu":"pd"):""}${k===t?" today":""}" title="${r?`${r.pct>=0?"+":""}${r.pct}%`:""}">${d}${h?"<b>⛰️</b>":""}</i>`)}
+  return `<p class="sec">${m}月のカレンダー（遊んだ日 ${played}日）</p><div class="cal">${"日月火水木金土".split("").map(c=>`<small>${c}</small>`).join("")}${cells.join("")}</div>`}
 function howto(){
   const ws=Object.keys(REC.words);
   $("screen").innerHTML=`<div class="howto">
