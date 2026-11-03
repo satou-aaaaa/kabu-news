@@ -130,6 +130,8 @@ try {
   check("共有の文は「題・絵文字5つ・持ち金・称号」", new RegExp(`^株ニュース5本勝負 第\\d+回（\\d+/\\d+）\\n${marks.join("")}\\n100万円 → .+（[+-]?\\d+%）\\n.+\\n#株ニュース5本勝負$`, "u").test(share.trim()), share);
   check("共有の文に答え（ニュースや会社名）が出ない", !list.length || !(await page.evaluate(() => window.__kabu.COMPANIES.some((c) => document.querySelector(".share").textContent.includes(c.n)))));
   check("終わりの画面に今日出てきた言葉が並ぶ", (await page.locator(".words .term").count()) >= 1);
+  { const n = await page.locator(".mline circle").count(), lab = await page.getAttribute(".mline", "aria-label");
+    check("終わりの画面に持ち金の動き（はじめ＋1本ごとの6点）の線が出て、読み上げ用の説明がある", n === 6 && /持ち金の動き：100万円から/.test(lab || ""), `${n} ${lab}`); }
   { await page.waitForTimeout(1000); const low = await contrastLow(page); check("終わりの画面の文字は背景と十分な濃さの差がある", low.length === 0, low.join(" / ")); }
   check("今日の5本を終えた画面に Ko-fi のひとこと（ただのリンク1行）が出る", money < 1000000 ? (await page.locator(".kofi").count()) === 0 : (await page.locator(".kofi a[href='https://ko-fi.com/satouaaaaa']").count()) === 1);
   { const rival = (await page.textContent(".rival")).replace(/\s+/g, "");

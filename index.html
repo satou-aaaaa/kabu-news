@@ -113,6 +113,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .ttl b{color:var(--gold);font-size:16px}.ttl small,.wkbox small{color:var(--muted);font-size:12px}
 .wkbox .sec{display:flex;justify-content:space-between;gap:8px}.wkbox>div{display:grid;grid-template-columns:24px 1fr 64px 36px;align-items:center;gap:6px;font-size:13px}
 .wkbox .bar,.ttl .bar{margin:0}.wkbox>div.got b{color:var(--muted);text-decoration:line-through}.chain{color:var(--gold);font-weight:900}
+.mline{width:100%;max-width:300px;height:72px;margin:0 auto;display:block}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}.cal small{color:var(--muted);font-size:11px}
 .cal i{font-style:normal;font-size:12px;aspect-ratio:1;display:grid;place-items:center;border-radius:6px;background:var(--panel);position:relative;color:var(--muted)}
 .cal i:empty{background:none}.cal i.pu{background:#c93a30;color:#fff;font-weight:900}.cal i.pd{background:#2d68c4;color:#fff;font-weight:900}
@@ -469,7 +470,7 @@ function pick(side){
   if(stale())return;
   const e=G.list[G.t],now=e.hist.at(-1),next=Math.round(now*(1+e.p/100));
   const bet=G.money*(G.allIn?1:.5),gain=Math.round(bet*side*e.p/100),before=G.money;
-  G.money+=gain;const hit=side!==0&&Math.sign(e.p)===side;
+  G.money+=gain;(G.mh||(G.mh=[START])).push(G.money);const hit=side!==0&&Math.sign(e.p)===side;
   G.marks.push(side===0?"😶":hit?"🎯":"💥");if(!G.words.includes(e.t))G.words.push(e.t);
   if(side!==0){G.bets++;G.hits+=hit?1:0}
   (G.log||(G.log=[])).push({n:e.n,c:e.c,t:e.t,x:e.x?1:0,s:side,h:hit?1:0,a:G.allIn?1:0});
@@ -517,6 +518,7 @@ function end(){
   $("screen").innerHTML=`<div class="col center">
     <div class="rank">${rank}</div>
     <div class="big ${pct>=0?"u":"d"}" id="tot" aria-live="polite">0%</div>
+    ${!old&&G.mh&&G.mh.length>1?moneyLine(G.mh):""}
     ${G.daily&&st?`<div><span class="fire">🔥 ${st}日連続</span></div>`:""}
     ${!old&&G.list.length===TURNS?(()=>{const rm=rivalMoney(G.list),rp=Math.round((rm/START-1)*100),win=G.money>rm,tie=G.money===rm;
       return `<div class="rival"><span>見出しどおりに張ると</span><b class="${rp>=0?"u":"d"}">${rp>=0?"+":""}${rp}%</b><em>${tie?"引き分け":win?"あなたの勝ち":"見出しどおりの勝ち"}</em></div>`})():""}
@@ -541,6 +543,10 @@ function end(){
   if(G.chal){CHAL=null;try{history.replaceState(null,"",location.pathname)}catch{}}
   if($("dare")){const u=dareUrl(G.list,pct);$("dare").dataset.url=u;$("dare").onclick=()=>{const t=`株ニュース5本勝負の挑戦状\nわたしは ${pct>=0?"+":""}${pct}%。同じ5本で勝てる？\n${u}`;if(navigator.share)navigator.share({text:t}).catch(()=>{});else copy(t)}}$("tohome").onclick=home;if($("hard"))$("hard").onclick=()=>start("hard");
 }
+// 持ち金の動き（1本ごと）。100万円の線より上は赤、下は青
+function moneyLine(mh){const W=280,H=60,lo=Math.min(START,...mh),hi=Math.max(START,...mh),sp=hi-lo||1,x=i=>i*(W/(mh.length-1)),y=v=>H-(v-lo)/sp*H;
+  const pts=mh.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" "),last=mh.at(-1);
+  return `<svg class="mline" viewBox="-6 -6 ${W+12} ${H+12}" role="img" aria-label="持ち金の動き：${man(START)}から${man(last)}"><line x1="0" x2="${W}" y1="${y(START)}" y2="${y(START)}" stroke="#ffffff40" stroke-dasharray="4 4"/><polyline points="${pts}" fill="none" stroke="${last>=START?"var(--up)":"var(--down)"}" stroke-width="3" stroke-linejoin="round"/>${mh.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.5" fill="${i&&v<mh[i-1]?"var(--down)":i&&v>mh[i-1]?"var(--up)":"#ffffff90"}"/>`).join("")}</svg>`}
 // 肩書きが上がった・今週のミッションがそろった知らせ
 function growRow(tUp,wDone){const t=title(),w=wk(),ms=missions(),done=ms.filter(m=>(w.v[m[0]]||0)>=m[3]).length;
   return `<p class="sub growline">${t.e} ${t.n}${t.next?`・次の「${t.next[2]}」まで あと${t.next[0]-REC.xp}本`:""}<br>今週のミッション ${done}/3${ms.filter(m=>(w.v[m[0]]||0)<m[3]).slice(0,1).map(m=>`・次は「${m[2]}」${w.v[m[0]]||0}/${m[3]}`).join("")}</p>`+(tUp?`<div class="newach" role="status"><div><i>${tUp.e}</i><span><small>肩書きが上がった</small><b>${tUp.n}</b></span></div>${tUp.n==="駆け出し"?`<div><i>⛓️</i><span><small>新しい遊び方が開いた</small><b>連続的中チャレンジ</b></span></div>`:""}</div>`:"")+
