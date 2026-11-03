@@ -242,8 +242,7 @@ function stale(){
   if(!G.daily)return false;sync();
   if(REC.days[G.day]){end();return true}
   const c=REC.cur;
-  if(c&&c.day>G.day){home();return true}
-  if(c&&c.day===G.day&&(c.t!==G.t||c.marks.join()!==G.marks.join())){G={...c,daily:true};toast("別の画面で進めたところから続けます");G.t<TURNS?turn():end();return true}
+  if(c&&c.day===G.day&&(c.t>G.t||c.t===G.t&&c.marks.join()!==G.marks.join())){G={...c,daily:true};toast("別の画面で進めたところから続けます");G.t<TURNS?turn():end();return true}
   return false;
 }
 function pick(side){
@@ -281,7 +280,7 @@ function end(){
   const text=old?old.text:`株ニュース5本勝負 ${G.daily?d:"練習"}\n${G.marks.join("")}\n100万円 → ${man(G.money)}（${pct>=0?"+":""}${pct}%）\n${rank}${url}`;
   if(G.daily&&!old){REC.days[day]={pct,marks:G.marks.join(""),text};REC.plays++;REC.hits+=G.hits;REC.bets+=G.bets}
   if(G.daily&&REC.cur&&REC.cur.day===day)delete REC.cur;
-  if(G.money>REC.best)REC.best=G.money;
+  if(!old&&G.t>=TURNS&&G.money>REC.best)REC.best=G.money;
   const newWords=G.words.filter(w=>!REC.words[w]);for(const w of G.words)REC.words[w]=1;save(REC);
   $("screen").innerHTML=`<div class="col center">
     <div class="rank">${rank}</div>

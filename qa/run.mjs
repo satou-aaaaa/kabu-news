@@ -145,9 +145,11 @@ try {
   await tb.click("#go");
   for (let i = 0; i < 5; i++) { await tb.click("#sell"); await tb.click("#next"); }
   const saved = await tb.evaluate(() => Object.values(JSON.parse(localStorage.getItem("kabu-news-v1")).days)[0]);
+  const bestB = await tb.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).best);
   await ta.click("#buy");
   const after = await ta.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")));
   check("別のタブで今日の5本を終えたら、古いタブが記録を消さない", Object.values(after.days)[0]?.pct === saved.pct && after.plays === 1 && !after.cur, JSON.stringify({ plays: after.plays, cur: !!after.cur }));
+  check("途中のタブの持ち金で最高記録を書き換えない", after.best === bestB, `${after.best} / ${bestB}`);
   const shareA = (await ta.textContent(".share")).trim();
   check("古いタブで答えると、結果画面と共有の文は先に保存した記録になる", shareA === saved.text.replace(/\n[^\n]*github\.io[^\n]*$/, "").trim(), shareA);
   await ctxTab.close();
@@ -176,6 +178,15 @@ try {
   const rd = await rb.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")));
   check("そのまま古いタブで最後まで遊ぶと、記録の1本目は先の答えのまま", Object.values(rd.days)[0]?.marks.startsWith(firstMarks) && rd.plays === 1, Object.values(rd.days)[0]?.marks);
   await ctxRace.close();
+
+  // 保存が途中で失敗しても（容量いっぱいなど）、前の問題に戻らず最後まで遊べる
+  const ctxFull = await browser.newContext({ viewport: { width: 390, height: 800 } });
+  const pf = await ctxFull.newPage();
+  await pf.goto(url); await pf.click("#go"); await pf.click("#buy"); await pf.click("#next");
+  await pf.evaluate(() => { Storage.prototype.setItem = () => { throw new Error("QuotaExceededError"); }; });
+  for (let i = 1; i < 5; i++) { await pf.click("#buy"); await pf.click("#next"); }
+  check("保存が途中で失敗しても、前の問題に戻らず最後まで遊べる", (await pf.locator(".share").count()) === 1);
+  await ctxFull.close();
 
   // 6. 記録が使えない端末（プライベートモードなど）でも遊べる
   const ctxNo = await browser.newContext({ viewport: { width: 390, height: 800 } });
