@@ -11,6 +11,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const url = "file://" + path.join(root, "index.html");
 const results = [];
 const check = (name, ok, detail = "") => results.push({ name, ok: !!ok, detail });
+const MISSION_GOAL = (id) => ({ play3: 3, hit12: 12, tw3: 3, ai3: 3, hard1: 1, p10: 1, co6: 6, rival2: 2, surv5: 1, rev3: 3 })[id] ?? 0;
 
 // 1. データの形（ブラウザを使わない）
 const sb = { window: {} }; vm.runInNewContext(readFileSync(path.join(root, "data.js"), "utf8"), sb);
@@ -163,7 +164,7 @@ try {
     const seen = {}; for (const e of EVENTS) if (!unseen.includes(e)) seen[e.n] = 1; let ok = 0;
     for (let s = 0; s < 1000; s++) if (build(s, false, seen).every((e) => !seen[e.n])) ok++; return ok; });
   check("練習は、まだ読んでいないニュースを先に出す（1000回）", pr >= 990, `${pr}/1000`);
-  check("今日の5本のあと、はじめの画面に上級の5本と実績・図鑑のボタンが出る", (await page.locator("#hard").count()) === 1 && /実績と図鑑（\d+\/15）/.test(await page.textContent("#col")));
+  check("今日の5本のあと、はじめの画面に上級の5本と実績・図鑑のボタンが出る", (await page.locator("#hard").count()) === 1 && /実績と図鑑（\d+\/18）/.test(await page.textContent("#col")));
   await page.click("#hard");
   check("上級ではいつも全力（全力の切り替えが無い）", (await page.locator("#all").count()) === 0 && /いつも全力/.test(await page.textContent("#screen")));
   let twists = 0;
@@ -184,7 +185,7 @@ try {
   await page.click("#tohome");
   check("上級は1日1回（終えると結果だけ出る）", (await page.locator("#hard").count()) === 0 && (await page.locator(".hardbox").count()) === 1);
   await page.click("#col");
-  check("実績が15個並び、手に入れた実績が出る", (await page.locator(".ach div").count()) === 15 && (await page.locator(".ach div.got").count()) >= 1);
+  check("実績が18個並び、手に入れた実績が出る", (await page.locator(".ach div").count()) === 18 && (await page.locator(".ach div.got").count()) >= 1);
   check("まだの実績には進み具合が出る", (await page.locator(".ach div:not(.got) .bar").count()) >= 1);
   const seenN = Number((await page.locator(".stats b").nth(3).textContent()).split("/")[0]);
   check("図鑑：読んだニュースが数えられる（今日・練習・上級）", seenN >= 11 && seenN <= 15, String(seenN));
@@ -229,6 +230,43 @@ try {
   { const w = (await page.textContent(".qword")).trim(), right = Object.values(terms).find(([n]) => n === w)[1];
     await page.locator(".qch button").filter({ hasNotText: right }).first().click();
     check("まちがえると、正しい説明に印が付く", (await page.locator(".qch button.right").count()) === 1 && (await page.locator(".qch button.wrong").count()) === 1); }
+  // 飽きない仕組み：肩書き・今週のミッション・連続的中チャレンジ
+  { const r = await page.evaluate(() => { const k = window.__kabu, seen = {}; let bad = 0, surv = 0;
+      for (let i = 0; i < 2000; i++) { const key = new Date(Date.UTC(2026, 10, 2) + i * 7 * 864e5).toISOString().slice(0, 10);
+        const lo = k.pickMissions(key, 0), hi = k.pickMissions(key, 99); if (new Set(lo.map((m) => m[0])).size !== 3 || new Set(hi.map((m) => m[0])).size !== 3) bad++;
+        if (lo.some((m) => m[0] === "surv5")) surv++; for (const m of hi) seen[m[0]] = 1;
+        if (k.pickMissions(key, 99).map((m) => m[0]).join() !== hi.map((m) => m[0]).join()) bad++; }
+      return { bad, surv, kinds: Object.keys(seen).length, all: k.MISSIONS.length, mon: new Date(Date.parse(k.weekKey())).getUTCDay() }; });
+    check("今週のミッション：2000週ぶん作り、毎週ちがう3つ・同じ週はだれでも同じ・まだ開いていない遊び方は出ない・全種類が出る", r.bad === 0 && r.surv === 0 && r.kinds === r.all, JSON.stringify(r));
+    check("週の区切りは月曜（日本時間）", r.mon === 1, String(r.mon)); }
+  await page.evaluate(() => { const r = JSON.parse(localStorage.getItem("kabu-news-v1")); r.xp = 9; localStorage.setItem("kabu-news-v1", JSON.stringify(r)); });
+  await page.reload();
+  check("はじめの画面に肩書きと、次の肩書きまでの本数が出る", /見習い/.test(await page.textContent(".ttl")) && /あと1本当てる/.test(await page.textContent(".ttl")), await page.textContent(".ttl"));
+  check("はじめの画面に今週のミッションが3つ、進み具合つきで出る", (await page.locator(".wkbox > div").count()) === 3 && (await page.locator(".wkbox .bar").count()) === 3);
+  check("連続的中チャレンジは「駆け出し」までは鍵がかかっている", (await page.locator("#surv").count()) === 0 && /連続的中チャレンジは、肩書き「駆け出し」から（あと1本当てる）/.test(await page.textContent("#screen")));
+  const answer = async () => { const h = await page.textContent("#nw"), ev = await page.evaluate((h) => window.__kabu.EVENTS.find((e) => e.n === h), h); return ev.p > 0; };
+  await page.click("#go"); // 練習
+  for (let i = 0; i < 5; i++) { await page.waitForFunction(() => document.querySelector("#nw")?.textContent.length > 3); await page.waitForTimeout(700);
+    await page.click((await answer()) ? "#buy" : "#sell"); await page.click("#next"); }
+  { const t = await page.textContent("#screen");
+    check("当てて肩書きが上がると知らせが出て、「駆け出し」で連続的中チャレンジが開く", /肩書きが上がった/.test(t) && /連続的中チャレンジ/.test(t), ""); }
+  await page.click("#tohome");
+  check("「駆け出し」になると連続的中チャレンジのボタンが出る", (await page.locator("#surv").count()) === 1);
+  const xp0 = await page.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).xp);
+  await page.click("#surv");
+  check("連続的中チャレンジは見送りが無く、何本続いているかが出る", (await page.locator("#pass").count()) === 0 && /0本連続中/.test(await page.textContent(".chain")));
+  for (let i = 0; i < 6; i++) { await page.waitForTimeout(700); await page.click((await answer()) ? "#buy" : "#sell"); await page.click("#next"); }
+  await page.waitForTimeout(700); await page.click((await answer()) ? "#sell" : "#buy");
+  check("外れると、その場で終わりの案内になる", /6本連続で終わり/.test(await page.textContent(".chain")) && (await page.textContent("#next")).trim() === "結果を見る");
+  await page.click("#next");
+  { const t = (await page.textContent(".share")).trim(), r = await page.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")));
+    const heads = await page.evaluate(() => window.__kabu.EVENTS.map((e) => e.n)), names = await page.evaluate(() => window.__kabu.COMPANIES.map((c) => c.n));
+    check("連続的中チャレンジの結果：本数が出て、最高記録と肩書きの本数に入る", (await page.textContent("#snum")).trim() === "6本" && r.sbest === 6 && r.xp === xp0 + 6, `${r.sbest} ${r.xp} ${xp0}`);
+    check("連続的中チャレンジの共有の文に答え（会社名・ニュース）を出さない", /6本連続/.test(t) && !heads.some((h) => t.includes(h)) && !names.some((n) => t.includes(n)), t);
+    check("今週のミッションの記録は今週（月曜）の分だけで、目標を超えない", r.wk && new Date(Date.parse(r.wk.k)).getUTCDay() === 1 && Object.entries(r.wk.v).every(([id, v]) => v <= MISSION_GOAL(id)), JSON.stringify(r.wk));
+    check("外れたニュースは復習に入る", Object.keys(r.miss).length >= 1); }
+  await page.click("#sagain");
+  check("「もう一度挑戦」で、また0本から始まる", /0本連続中/.test(await page.textContent(".chain")));
   await page.goto(url);
   check("遊んでいる間にページのエラーが無い", errors.length === 0, errors.join(" / "));
 
