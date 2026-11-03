@@ -132,6 +132,10 @@ try {
   check("0時をまたいでも、始めた日の記録になる（次の日の5本は遊べる）", recDays.join() === "2026-11-03" && /^株ニュース5本勝負 11\/3\n/.test((await pd.textContent(".share")).trim()), recDays.join());
   await pd.click("#tohome");
   check("0時をまたいだあと、次の日の「今日の5本」が始められる", /今日の5本をはじめる/.test(await pd.textContent("#go")));
+  await pd.click("#go");
+  for (let i = 0; i < 5; i++) { await pd.click("#buy"); await pd.click("#next"); }
+  const days2 = await pd.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("kabu-news-v1")).days).sort());
+  check("次の日の「今日の5本」を最後まで遊ぶと、次の日の記録になる", days2.join() === "2026-11-03,2026-11-04", days2.join());
   await ctxDay.close();
 
   const ctxTab = await browser.newContext({ viewport: { width: 390, height: 800 } });
