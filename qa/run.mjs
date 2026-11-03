@@ -84,6 +84,7 @@ try {
   { const small = await page.evaluate(() => [...document.querySelectorAll("button,a")].filter((b) => b.offsetParent && b.id !== "home").map((b) => { const r = b.getBoundingClientRect(); return [b.id || b.textContent.trim().slice(0, 8), r.width, r.height]; }).filter(([, w, h]) => w < 44 || h < 44));
     check("押す所はどれも44px以上（指で押しやすい）", small.length === 0, JSON.stringify(small)); }
   await page.click("#go");
+  check("初めての1問目に、買う・売るのヒントが1行出る", (await page.locator(".hint").count()) === 1);
   const list = await page.evaluate(() => { const s = (str) => { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
     const d = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); return window.__kabu.build(s(d)).map((e) => e.p); });
   const plan = [["buy", false], ["sell", false], ["pass", false], ["buy", true], ["sell", true]];
@@ -100,6 +101,7 @@ try {
     money += Math.round(money * (all ? 1 : .5) * side * list[i] / 100);
     marks.push(side === 0 ? "😶" : Math.sign(list[i]) === side ? "🎯" : "💥");
     if (i === 0) check("遊んでいる途中に Ko-fi のひとことが無い", (await page.locator(".kofi").count()) === 0);
+    if (i === 1) check("2問目からはヒントを出さない", (await page.locator(".hint").count()) === 0);
     if (i === 0) {
       const term = await page.locator(".result .term b").textContent();
       check("結果の画面に「なぜ動いたか」と用語の説明が出る", (await page.locator(".why").textContent()).length > 3 && term.length > 1);
@@ -156,7 +158,7 @@ try {
     const seen = {}; for (const e of EVENTS) if (!unseen.includes(e)) seen[e.n] = 1; let ok = 0;
     for (let s = 0; s < 1000; s++) if (build(s, false, seen).every((e) => !seen[e.n])) ok++; return ok; });
   check("練習は、まだ読んでいないニュースを先に出す（1000回）", pr >= 990, `${pr}/1000`);
-  check("今日の5本のあと、はじめの画面に上級の5本と実績・図鑑のボタンが出る", (await page.locator("#hard").count()) === 1 && /実績と図鑑（\d+\/14）/.test(await page.textContent("#col")));
+  check("今日の5本のあと、はじめの画面に上級の5本と実績・図鑑のボタンが出る", (await page.locator("#hard").count()) === 1 && /実績と図鑑（\d+\/15）/.test(await page.textContent("#col")));
   await page.click("#hard");
   check("上級ではいつも全力（全力の切り替えが無い）", (await page.locator("#all").count()) === 0 && /いつも全力/.test(await page.textContent("#screen")));
   let twists = 0;
@@ -177,7 +179,7 @@ try {
   await page.click("#tohome");
   check("上級は1日1回（終えると結果だけ出る）", (await page.locator("#hard").count()) === 0 && (await page.locator(".hardbox").count()) === 1);
   await page.click("#col");
-  check("実績が14個並び、手に入れた実績が出る", (await page.locator(".ach div").count()) === 14 && (await page.locator(".ach div.got").count()) >= 1);
+  check("実績が15個並び、手に入れた実績が出る", (await page.locator(".ach div").count()) === 15 && (await page.locator(".ach div.got").count()) >= 1);
   check("まだの実績には進み具合が出る", (await page.locator(".ach div:not(.got) .bar").count()) >= 1);
   const seenN = Number((await page.locator(".stats b").nth(3).textContent()).split("/")[0]);
   check("図鑑：読んだニュースが数えられる（今日・練習・上級）", seenN >= 11 && seenN <= 15, String(seenN));
@@ -204,6 +206,22 @@ try {
   check("復習するニュースが無くなると、復習のボタンは消える", (await page.locator("#rev").count()) === 0);
   await page.click("#col");
   await page.click("#back");
+  // 覚えた言葉のテスト：5つ覚えると出る。正しい説明を選ぶと正解、5問正解で実績
+  await page.evaluate(() => { const r = JSON.parse(localStorage.getItem("kabu-news-v1")); r.words = {}; for (const k of Object.keys(window.__kabu.TERMS)) r.words[k] = 1; localStorage.setItem("kabu-news-v1", JSON.stringify(r)); });
+  await page.reload(); await page.click("#how"); await page.click("#quiz");
+  const terms = await page.evaluate(() => window.__kabu.TERMS);
+  for (let i = 0; i < 5; i++) {
+    const w = (await page.textContent(".qword")).trim(), right = Object.values(terms).find(([n]) => n === w)[1];
+    check(`言葉のテスト ${i + 1}問目：3つの説明から選べる（押しやすい大きさ）`, (await page.locator(".qch button").count()) === 3 && (await page.locator(".qch button").evaluateAll((bs) => bs.every((b) => b.getBoundingClientRect().height >= 44))));
+    await page.locator(".qch button", { hasText: right }).first().click();
+    await page.click("#qnext");
+  }
+  check("言葉のテストで5問正解すると 5/5 と実績「言葉テスト満点」", (await page.textContent("#qscore")).trim() === "5/5" && /言葉テスト満点/.test(await page.textContent(".newach")));
+  await page.click("#qagain");
+  { const w = (await page.textContent(".qword")).trim(), right = Object.values(terms).find(([n]) => n === w)[1];
+    await page.locator(".qch button").filter({ hasNotText: right }).first().click();
+    check("まちがえると、正しい説明に印が付く", (await page.locator(".qch button.right").count()) === 1 && (await page.locator(".qch button.wrong").count()) === 1); }
+  await page.goto(url);
   check("遊んでいる間にページのエラーが無い", errors.length === 0, errors.join(" / "));
 
   // 5b. 今日の5本の記録が壊れない（0時をまたぐ・別のタブ・途中で問題が変わらない）

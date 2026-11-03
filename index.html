@@ -144,6 +144,12 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .fb div{display:flex;gap:12px}
 .fb div a{display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:#ffffff14;font-size:28px;text-decoration:none}
 .fbtext{color:var(--gold);font-size:13px;min-height:44px;display:flex;align-items:center}
+.hint{color:var(--gold)!important}
+.qword{font-family:"Dela Gothic One",sans-serif;font-size:30px;text-align:center;color:var(--gold);padding:18px 0}
+.qch{display:flex;flex-direction:column;gap:8px}
+.qch button{text-align:left;font-size:14px;line-height:1.5;min-height:56px;padding:10px 14px}
+.qch button.right{border-color:var(--gold);background:#f4c04e26}
+.qch button.wrong{border-color:var(--down);opacity:.7}
 canvas#fx{position:fixed;inset:0;pointer-events:none;width:100%;height:100%;z-index:4}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -222,7 +228,8 @@ const ACH=[
   ["hardP","👑","上級を極める","上級の5本を5本とも当てる",r=>[Math.max(0,...Object.values(r.hdays).map(d=>[...d.marks].filter(m=>m==="🎯").length)),5]],
   ["co12","🏢","12社を読む","12社すべてで1回以上当てる",r=>[COMPANIES.filter((c,i)=>(r.co[i]||[])[2]>0).length,12]],
   ["news","📰","ニュース通","ニュースを半分読む",r=>[Object.keys(r.seen).length,Math.ceil(EVENTS.length/2)]],
-  ["words","📚","言葉の達人","株の言葉をすべて覚える",r=>[Object.keys(r.words).length,Object.keys(TERMS).length]]];
+  ["words","📚","言葉の達人","株の言葉をすべて覚える",r=>[Object.keys(r.words).length,Object.keys(TERMS).length]],
+  ["quiz","📝","言葉テスト満点","覚えた言葉のテストで5問正解",r=>[r.qbest||0,5]]];
 function achs(){return ACH.map(([id,e,n,d,f])=>{const [v,g]=f(REC);return{id,e,n,d,v:Math.min(v,g),g,got:!!REC.ach[id]||v>=g}})}
 
 // ---- 音（押したときだけ鳴らす） ----
@@ -309,10 +316,31 @@ function howto(){
     <p>5. 今日の5本を終えると<b>上級の5本</b>に挑戦できます。いつも全力で、見出しの印象と逆に動くニュースが多めです。</p>
     <p class="sec">覚えた言葉（${ws.length}/${Object.keys(TERMS).length}）</p>
     <div class="words">${ws.length?ws.map(k=>`<div class="term"><b>${TERMS[k][0]}</b>${TERMS[k][1]}</div>`).join(""):`<div class="term">遊ぶと、ニュースに出てきた株の言葉がここにたまります。</div>`}</div>
+    ${ws.length>=5?`<button class="hardbtn" id="quiz">📝 覚えた言葉のテスト<small>5問・3つから選ぶ</small></button>`:`<p class="sub">言葉を5つ覚えると、言葉のテストができます</p>`}
     <button class="main" id="back">もどる</button>
     <p class="note"><a href="${fbUrl("","遊び方の画面から")}" target="_blank" rel="noopener" style="color:var(--gold)">感想・直してほしい所を送る</a>（GitHub）</p>
     <p class="note">気に入ったら <a href="https://ko-fi.com/satouaaaaa" target="_blank" rel="noopener" style="color:var(--gold)">Ko-fi で応援</a>（遊ぶのはずっと無料）</p></div>`;
-  $("back").onclick=home;
+  $("back").onclick=home;if($("quiz"))$("quiz").onclick=quiz;
+}
+// 覚えた言葉のテスト：言葉を見て、正しい説明を3つから選ぶ（1画面1問）
+function quiz(){
+  sync();const keys=Object.keys(REC.words).filter(k=>TERMS[k]),all=Object.keys(TERMS),sh=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+  if(keys.length<5){howto();return}
+  const Q=sh(keys).slice(0,5).map(k=>({k,ch:sh([k,...sh(all.filter(x=>x!==k)).slice(0,2)])}));let i=0,ok=0;
+  const show=()=>{const q=Q[i];
+    $("screen").innerHTML=`<div class="col"><p class="sub">言葉のテスト ${i+1}/5</p><div class="qword">${TERMS[q.k][0]}</div><p class="sub">正しい説明はどれ？</p>
+      <div class="qch">${q.ch.map((c,j)=>`<button class="ghost" data-j="${j}">${TERMS[c][1]}</button>`).join("")}</div></div>`;
+    document.querySelectorAll(".qch button").forEach(b=>b.onclick=()=>{const c=q.ch[+b.dataset.j],hit=c===q.k;if(hit)ok++;beep(hit?"hit":"miss");
+      document.querySelectorAll(".qch button").forEach(x=>{x.disabled=true;if(q.ch[+x.dataset.j]===q.k)x.classList.add("right");else if(x===b)x.classList.add("wrong")});
+      const n=document.createElement("button");n.className="main";n.id="qnext";n.textContent=i<4?"次の問題":"結果を見る";$("screen").firstElementChild.append(n);
+      n.onclick=()=>{i++;i<5?show():done()};n.focus({preventScroll:true})})};
+  const done=()=>{sync();const before=new Set(achs().filter(a=>a.got).map(a=>a.id));REC.qbest=Math.max(REC.qbest||0,ok);
+    const got=achs().filter(a=>a.got&&!before.has(a.id));for(const a of got)REC.ach[a.id]=jstDay();save(REC);
+    $("screen").innerHTML=`<div class="col center"><div class="rank">言葉のテスト</div><div class="big ${ok>=3?"u":"d"}" id="qscore">${ok}/5</div>
+      ${got.length?`<div class="newach" role="status">${got.map(a=>`<div><i>${a.e}</i><span><small>実績を手に入れた</small><b>${a.n}</b></span></div>`).join("")}</div>`:""}
+      <button class="main" id="qagain">もう一度</button><button class="ghost" id="back">もどる</button></div>`;
+    if(ok===5)confetti();$("qagain").onclick=quiz;$("back").onclick=howto};
+  show();
 }
 function start(mode){
   const review=mode==="review",daily=!!mode&&!review,hard=mode==="hard",g={hard};
@@ -335,6 +363,7 @@ function turn(){
     <div class="acts">
       <button class="buy" id="buy">買う<small>上がると思う</small></button><button class="sell" id="sell">売る<small>下がると思う</small></button>
       <button class="pass" id="pass">今回は見送る</button></div>
+    ${G.daily&&!G.hard&&!REC.plays&&G.t===0?`<p class="sub hint">上がると思えば「買う」、下がると思えば「売る」。迷ったら見送りでも大丈夫。</p>`:""}
     ${G.hard?`<p class="sub">⛰️ 上級：いつも全力（持ち金ぜんぶで勝負）</p>`:`<label class="allin"><input type="checkbox" id="all" ${G.allIn?"checked":""}><span class="sw"></span><span><b>全力</b>（持ち金ぜんぶで勝負）</span></label>`}`;
   typeText($("nw"),e.n);
   if($("all"))$("all").onchange=ev=>{G.allIn=ev.target.checked;beep("tap")};
@@ -373,6 +402,7 @@ function pick(side){
     <button class="main" id="next">${G.t+1<G.list.length?"次のニュース":"結果を見る"}</button>`;
   countUp($("pct"),0,Math.abs(e.p),v=>`${e.p>=0?"▲":"▼"}${Math.round(v)}%`,600);
   countUp($("pv"),now,next,v=>Math.round(v).toLocaleString(),600);
+  if(side&&REC.sound&&navigator.vibrate)try{navigator.vibrate(hit?25:[40,40,40])}catch{}
   if(side===0)beep("tap");else if(hit){beep("hit");if(Math.abs(e.p)>=12||G.allIn)confetti()}else{beep("miss");$("card").classList.add("shake")}
   G.t++;saveCur();
   $("next").onclick=()=>{G.t<G.list.length?turn():end()};$("next").focus({preventScroll:true});
