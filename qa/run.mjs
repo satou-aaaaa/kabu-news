@@ -256,6 +256,7 @@ try {
     await page.click((await answer()) ? "#buy" : "#sell"); await page.click("#next"); }
   { const t = await page.textContent("#screen");
     check("当てて肩書きが上がると知らせが出て、「駆け出し」で連続的中チャレンジが開く", /肩書きが上がった/.test(t) && /連続的中チャレンジ/.test(t), ""); }
+  check("終わりの画面に、肩書きと今週のミッションの進み具合が1行で出る", /駆け出し/.test(await page.textContent(".growline")) && /今週のミッション \d\/3/.test(await page.textContent(".growline")), await page.textContent(".growline"));
   await page.click("#tohome");
   check("「駆け出し」になると連続的中チャレンジのボタンが出る", (await page.locator("#surv").count()) === 1);
   const xp0 = await page.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).xp);
