@@ -258,7 +258,9 @@ try {
   const xp0 = await page.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")).xp);
   await page.click("#surv");
   check("連続的中チャレンジは見送りが無く、何本続いているかが出る", (await page.locator("#pass").count()) === 0 && /0本連続中/.test(await page.textContent(".chain")));
-  for (let i = 0; i < 6; i++) { await page.waitForTimeout(700); await page.click((await answer()) ? "#buy" : "#sell"); await page.click("#next"); }
+  for (let i = 0; i < 6; i++) { await page.waitForTimeout(700); await page.click((await answer()) ? "#buy" : "#sell");
+    if (i === 4) check("連続的中チャレンジで5本ごとに知らせが出る", /5本連続！/.test(await page.textContent("#toast")));
+    await page.click("#next"); }
   await page.waitForTimeout(700); await page.click((await answer()) ? "#sell" : "#buy");
   check("外れると、その場で終わりの案内になる", /6本連続で終わり/.test(await page.textContent(".chain")) && (await page.textContent("#next")).trim() === "結果を見る");
   await page.click("#next");
@@ -269,7 +271,7 @@ try {
     check("今週のミッションの記録は今週（月曜）の分だけで、目標を超えない", r.wk && new Date(Date.parse(r.wk.k)).getUTCDay() === 1 && Object.entries(r.wk.v).every(([id, v]) => v <= MISSION_GOAL(id)), JSON.stringify(r.wk));
     check("外れたニュースは復習に入る", Object.keys(r.miss).length >= 1); }
   await page.click("#sagain");
-  check("「もう一度挑戦」で、また0本から始まる", /0本連続中/.test(await page.textContent(".chain")));
+  check("「もう一度挑戦」で、また0本から始まり、自己ベストまでの本数が出る", /0本連続中・自己ベストまで あと7本/.test(await page.textContent(".chain")), await page.textContent(".chain"));
   // 挑戦状：練習のあとに出せるリンクで、友だちが同じ5本を遊び、成績を比べる
   await page.click("#home"); await page.click("#go");
   const played = [];

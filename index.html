@@ -422,7 +422,7 @@ function start(mode){
 function saveCur(){if(!G.daily)return;sync();if(REC[dk(G)][G.day])return;const c=REC[ck(G)];if(c&&(c.day>G.day||c.day===G.day&&c.t>=G.t))return;REC[ck(G)]={...G};save(REC)}
 function turn(){
   const e=G.list[G.t],now=e.hist.at(-1);setMoney();
-  $("screen").innerHTML=`${G.surv?`<p class="sub chain">⛓️ ${G.hits}本連続中${REC.sbest?`・最高${REC.sbest}本`:""}</p>`:steps()}
+  $("screen").innerHTML=`${G.surv?`<p class="sub chain">⛓️ ${G.hits}本連続中${REC.sbest?(G.hits>REC.sbest?"・自己ベスト更新中":`・自己ベストまで あと${REC.sbest-G.hits+1}本`):""}</p>`:steps()}
     <div class="card flip">${coHead(e,now)}${chart(e.hist)}</div>
     <div class="news" aria-live="polite"><small>${G.surv?`連続的中チャレンジ ${G.t+1}本目`:`${G.review?"復習 ":""}ニュース ${G.t+1}/${G.list.length}`}</small><span class="typed" id="nw"></span></div>
     <div class="acts">
@@ -469,7 +469,7 @@ function pick(side){
   countUp($("pct"),0,Math.abs(e.p),v=>`${e.p>=0?"▲":"▼"}${Math.round(v)}%`,600);
   countUp($("pv"),now,next,v=>Math.round(v).toLocaleString(),600);
   if(side&&REC.sound&&navigator.vibrate)try{navigator.vibrate(hit?25:[40,40,40])}catch{}
-  if(side===0)beep("tap");else if(hit){beep("hit");if(Math.abs(e.p)>=12||G.allIn)confetti()}else{beep("miss");$("card").classList.add("shake")}
+  if(side===0)beep("tap");else if(hit){beep("hit");if(G.surv&&G.hits%5===0){confetti();toast(`⛓️ ${G.hits}本連続！`)}else if(G.surv&&G.hits===(REC.sbest||0)+1&&REC.sbest){toast("自己ベスト更新中！")}else if(Math.abs(e.p)>=12||G.allIn)confetti()}else{beep("miss");$("card").classList.add("shake")}
   G.t++;saveCur();
   $("next").onclick=()=>{G.t<G.list.length&&!over?turn():G.surv?survEnd():end()};$("next").focus({preventScroll:true});
 }
