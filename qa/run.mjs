@@ -107,6 +107,8 @@ try {
   check("共有の文に答え（ニュースや会社名）が出ない", !list.length || !(await page.evaluate(() => window.__kabu.COMPANIES.some((c) => document.querySelector(".share").textContent.includes(c.n)))));
   check("終わりの画面に今日出てきた言葉が並ぶ", (await page.locator(".words .term").count()) >= 1);
   check("終わりの画面に5本のふり返り（会社・値動き）が出る", (await page.locator(".recap div").count()) === 5);
+  check("初めての今日の5本で、実績「はじめの一歩」を手に入れたと出る", /はじめの一歩/.test(await page.textContent(".newach")));
+  check("今日の5本のあと、終わりの画面から上級に挑戦できる", (await page.locator("#hard").count()) === 1);
   { const x = decodeURIComponent((await page.getAttribute("#toX", "href")).split("text=")[1]), ln = decodeURIComponent((await page.getAttribute("#toLine", "href")).split("text=")[1]);
     const names = await page.evaluate(() => window.__kabu.COMPANIES.map((c) => c.n));
     check("X・LINE の投稿画面に結果とURLが入る（答えは入らない）", x === ln && x.startsWith(share.trim().split("\n")[0]) && x.endsWith("https://satou-aaaaa.github.io/kabu-news/") && !names.some((n) => x.includes(n)), x);
@@ -132,6 +134,43 @@ try {
   check("練習を最後まで遊べて、共有の文が「練習」になる", /^株ニュース5本勝負 練習/.test((await page.textContent(".share")).trim()));
   await page.click("#tohome");
   check("練習では遊んだ日が増えない", (await page.locator(".stats b").first().textContent()) === "1");
+
+  // 5a. やり込み：上級の5本・実績・図鑑
+  const hb = await page.evaluate(() => { const { build } = window.__kabu, bad = []; let same = 0;
+    for (let s = 0; s < 3000; s++) { const l = build(s, true), ups = l.filter((e) => e.p > 0).length;
+      if (l.length !== 5 || new Set(l.map((e) => e.c)).size !== 5 || ups === 0 || ups === 5 || l.filter((e) => e.x).length < 2) bad.push(s);
+      if (JSON.stringify(build(s, true)) === JSON.stringify(l)) same++; }
+    return { bad: bad.slice(0, 5), n: bad.length, same }; });
+  check("上級の5本を3000回組んで、毎回ひねった問題が2本以上・会社が重ならない・上げと下げが両方入る", hb.n === 0, hb.bad.join(","));
+  check("上級の5本も同じ日ならだれでも同じ", hb.same === 3000);
+  check("今日の5本のあと、はじめの画面に上級の5本と実績・図鑑のボタンが出る", (await page.locator("#hard").count()) === 1 && /実績と図鑑（\d+\/14）/.test(await page.textContent("#col")));
+  await page.click("#hard");
+  check("上級ではいつも全力（全力の切り替えが無い）", (await page.locator("#all").count()) === 0 && /いつも全力/.test(await page.textContent("#screen")));
+  let twists = 0;
+  for (let i = 0; i < 5; i++) {
+    if (i === 2) { await page.reload(); check("上級も途中で開き直すと続きから", /上級の5本の続き（3本目から）/.test(await page.textContent("#hard"))); await page.click("#hard"); }
+    await page.click("#buy"); twists += await page.locator(".twist").count(); await page.click("#next");
+  }
+  check("上級でひねった問題の答えに「ひねり」の印が出る（2本以上）", twists >= 2, String(twists));
+  const hardShare = (await page.textContent(".share")).trim();
+  check("上級の共有の文は「上級 第N回」", /^株ニュース5本勝負 上級 第\d+回（\d+\/\d+）\n/.test(hardShare), hardShare);
+  const hardList = await page.evaluate(() => { const s = (str) => { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+    const d = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); return window.__kabu.build(s(d + "h"), true).map((e) => e.n); });
+  const recapHeads = await page.locator(".recap small").allTextContents();
+  check("上級の5本は日付で決まる（だれでも同じ）", recapHeads.join() === hardList.join(), recapHeads.join(" / "));
+  const rec2 = await page.evaluate(() => JSON.parse(localStorage.getItem("kabu-news-v1")));
+  check("上級の記録は今日の5本と別に残り、遊んだ日は増えない", Object.keys(rec2.hdays).length === 1 && rec2.plays === 1 && !rec2.hcur, JSON.stringify({ h: Object.keys(rec2.hdays), p: rec2.plays }));
+  check("上級の最高は今日の5本の最高と別", rec2.hbest > 0 || rec2.hdays[Object.keys(rec2.hdays)[0]].pct <= 0);
+  await page.click("#tohome");
+  check("上級は1日1回（終えると結果だけ出る）", (await page.locator("#hard").count()) === 0 && (await page.locator(".hardbox").count()) === 1);
+  await page.click("#col");
+  check("実績が14個並び、手に入れた実績が出る", (await page.locator(".ach div").count()) === 14 && (await page.locator(".ach div.got").count()) >= 1);
+  check("まだの実績には進み具合が出る", (await page.locator(".ach div:not(.got) .bar").count()) >= 1);
+  const seenN = Number((await page.locator(".stats b").nth(3).textContent()).split("/")[0]);
+  check("図鑑：読んだニュースが数えられる（今日・練習・上級）", seenN >= 11 && seenN <= 15, String(seenN));
+  check("会社図鑑に12社の枠があり、読んだ会社は名前が出る", (await page.locator(".zukan div").count()) === 12 && (await page.locator(".zukan div:not(.no)").count()) >= 5);
+  check("ひねった問題の的中率が出る", /^(\d+%|-)$/.test(await page.locator(".stats b").first().textContent()));
+  await page.click("#back");
   check("遊んでいる間にページのエラーが無い", errors.length === 0, errors.join(" / "));
 
   // 5b. 今日の5本の記録が壊れない（0時をまたぐ・別のタブ・途中で問題が変わらない）
