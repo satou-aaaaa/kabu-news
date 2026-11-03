@@ -77,6 +77,7 @@ try {
   check("30日分の「今日の5本」がすべてちがう", days === 30, `${days}/30`);
 
   // 3. 通しで遊ぶ：今日の5本（買う→売る→見送る→全力で買う→売る）。持ち金の計算を別に計算して突き合わせる
+  check("遊ぶ前の画面に Ko-fi のひとことが無い", (await page.locator(".kofi").count()) === 0);
   check("はじめの画面に「今日の5本をはじめる」", /今日の5本をはじめる/.test(await page.textContent("#go")));
   check("初めての人には、空の記録でなく遊び方の3つの絵が出る", (await page.locator(".intro div").count()) === 3 && (await page.locator(".stats").count()) === 0);
   check("ボタンに今日が第何回かが出る（だれでも同じ回）", /^第\d+回 /.test((await page.textContent("#go")).trim()));
@@ -98,6 +99,7 @@ try {
     await page.click("#" + act);
     money += Math.round(money * (all ? 1 : .5) * side * list[i] / 100);
     marks.push(side === 0 ? "😶" : Math.sign(list[i]) === side ? "🎯" : "💥");
+    if (i === 0) check("遊んでいる途中に Ko-fi のひとことが無い", (await page.locator(".kofi").count()) === 0);
     if (i === 0) {
       const term = await page.locator(".result .term b").textContent();
       check("結果の画面に「なぜ動いたか」と用語の説明が出る", (await page.locator(".why").textContent()).length > 3 && term.length > 1);
@@ -110,6 +112,7 @@ try {
   check("共有の文は「題・絵文字5つ・持ち金・称号」", new RegExp(`^株ニュース5本勝負 第\\d+回（\\d+/\\d+）\\n${marks.join("")}\\n100万円 → .+（[+-]?\\d+%）\\n.+\\n#株ニュース5本勝負$`, "u").test(share.trim()), share);
   check("共有の文に答え（ニュースや会社名）が出ない", !list.length || !(await page.evaluate(() => window.__kabu.COMPANIES.some((c) => document.querySelector(".share").textContent.includes(c.n)))));
   check("終わりの画面に今日出てきた言葉が並ぶ", (await page.locator(".words .term").count()) >= 1);
+  check("今日の5本を終えた画面に Ko-fi のひとこと（ただのリンク1行）が出る", money < 1000000 ? (await page.locator(".kofi").count()) === 0 : (await page.locator(".kofi a[href='https://ko-fi.com/satouaaaaa']").count()) === 1);
   check("終わりの画面に5本のふり返り（会社・値動き）が出る", (await page.locator(".recap div").count()) === 5);
   check("初めての今日の5本で、実績「はじめの一歩」を手に入れたと出る", /はじめの一歩/.test(await page.textContent(".newach")));
   check("今日の5本のあと、終わりの画面から上級に挑戦できる", (await page.locator("#hard").count()) === 1);
@@ -135,6 +138,7 @@ try {
   // 5. 練習は何度でも・記録の「遊んだ日」は増えない。キーボード（1・2・3）でも遊べる
   await page.click("#go");
   for (let i = 0; i < 5; i++) { await page.keyboard.press(String(1 + (i % 3))); await page.click("#next"); }
+  check("練習の終わり・遊ぶ前・遊んでいる途中には Ko-fi のひとことを出さない", (await page.locator(".kofi").count()) === 0);
   check("練習を最後まで遊べて、共有の文が「練習」になる", /^株ニュース5本勝負 練習/.test((await page.textContent(".share")).trim()));
   await page.click("#tohome");
   check("練習では遊んだ日が増えない", (await page.locator(".stats b").first().textContent()) === "1");

@@ -408,6 +408,7 @@ function end(){
     <p class="sec">今日出てきた言葉${newWords.length?`（新しく${newWords.length}つ）`:""}</p>
     <div class="words">${G.words.map(k=>`<div class="term"><b>${TERMS[k][0]}</b>${TERMS[k][1]}</div>`).join("")}</div>
     ${fbRow(G.daily?`${G.hard?"上級 ":""}第${roundNo(day)}回`:G.review?"復習":"練習")}
+    ${G.daily&&!old&&pct>=0?`<p class="note kofi">楽しめたら、<a href="https://ko-fi.com/satouaaaaa" target="_blank" rel="noopener" style="color:var(--gold)">Ko-fi でコーヒー1杯の応援</a>をもらえると、新しいニュースづくりの励みになります（任意・遊ぶのはずっと無料）。</p>`:""}
     <button class="ghost" id="again">練習でもう一回</button>
     <button class="ghost" id="tohome">記録を見る</button></div>`;
   countUp($("tot"),0,pct,v=>`${v>=0?"+":"−"}${Math.abs(Math.round(v))}%`,900);
