@@ -270,6 +270,29 @@ try {
     check("外れたニュースは復習に入る", Object.keys(r.miss).length >= 1); }
   await page.click("#sagain");
   check("「もう一度挑戦」で、また0本から始まる", /0本連続中/.test(await page.textContent(".chain")));
+  // 挑戦状：練習のあとに出せるリンクで、友だちが同じ5本を遊び、成績を比べる
+  await page.click("#home"); await page.click("#go");
+  const played = [];
+  for (let i = 0; i < 5; i++) { await page.waitForFunction(() => document.querySelector("#nw")?.textContent.length > 3); await page.waitForTimeout(700);
+    const h = await page.textContent("#nw"); played.push(await page.evaluate((h) => window.__kabu.EVENTS.find((e) => e.n.startsWith(h)).n, h));
+    await page.click((await answer()) ? "#buy" : "#sell"); await page.click("#next"); }
+  const dare = await page.getAttribute("#dare", "data-url");
+  { const heads = await page.evaluate(() => window.__kabu.EVENTS.map((e) => e.n));
+    check("練習のあとに挑戦状のリンクが作れて、公開ページを指し、答え（見出し）を含まない", /^https:\/\/satou-aaaaa\.github\.io\/kabu-news\/\?c=[0-9a-z]{1,3}(-[0-9a-z]{1,3}){4}&p=-?\d+$/.test(dare || "") && !heads.some((h) => decodeURIComponent(dare).includes(h)), dare); }
+  await page.goto(url + dare.slice(dare.indexOf("?")).replace(/p=-?\d+/, "p=-7"));
+  check("挑戦状のリンクを開くと、はじめの画面に挑戦状と相手の成績が出る", /挑戦状が届いています/.test(await page.textContent(".dare")) && /-7%/.test(await page.textContent(".dare")));
+  await page.click("#chal");
+  const got5 = [];
+  for (let i = 0; i < 5; i++) { await page.waitForFunction(() => document.querySelector("#nw")?.textContent.length > 3); await page.waitForTimeout(700);
+    const h = await page.textContent("#nw"); got5.push(await page.evaluate((h) => window.__kabu.EVENTS.find((e) => e.n.startsWith(h)).n, h));
+    await page.click((await answer()) ? "#buy" : "#sell"); await page.click("#next"); }
+  check("挑戦状では、出した人と同じ5本が同じ順に出る", got5.join() === played.join(), got5.join(" / "));
+  check("挑戦状の結果に、相手の成績と勝ち負けが出る（全部当てれば勝ち）", /挑戦状の相手は/.test(await page.textContent("#screen")) && /あなたの勝ち/.test(await page.textContent("#screen")) && /^株ニュース5本勝負 挑戦状\n/.test((await page.textContent(".share")).trim()));
+  check("挑戦状を遊び終えると、URL から挑戦状が消える（同じ挑戦状が何度も出ない）", !/\?c=/.test(page.url()), page.url());
+  for (const bad of ["?c=zzz-1-2-3-4", "?c=1-1-2-3-4", "?c=<b>", "?c=1-2-3-4-5&p=abc"]) {
+    await page.goto(url + bad); const n = await page.locator(".dare").count();
+    const okP = bad.includes("p=abc") ? n === 1 && !/相手は/.test(await page.textContent(".dare")) : n === 0;
+    check(`おかしな挑戦状のリンク（${bad}）は無視する`, okP); }
   await page.goto(url);
   check("遊んでいる間にページのエラーが無い", errors.length === 0, errors.join(" / "));
 
