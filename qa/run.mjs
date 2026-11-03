@@ -188,7 +188,7 @@ try {
   await page.click("#tohome");
   check("上級は1日1回（終えると結果だけ出る）", (await page.locator("#hard").count()) === 0 && (await page.locator(".hardbox").count()) === 1);
   await page.click("#col");
-  check("実績が18個並び、手に入れた実績が出る", (await page.locator(".ach div").count()) === 18 && (await page.locator(".ach div.got").count()) >= 1);
+  check("実績が18個あり（遠いものはたたむ）、手に入れた実績が先頭に出る", (await page.locator(".ach > div").count()) === 18 && (await page.locator(".ach > div.got").count()) >= 1 && await page.locator(".ach > div").first().evaluate((d) => d.classList.contains("got")) && (await page.locator("details.more .ach > div").count()) === 18 - 4 - (await page.locator(".ach > div.got").count()));
   check("まだの実績には進み具合が出る", (await page.locator(".ach div:not(.got) .bar").count()) >= 1);
   const seenN = Number((await page.locator(".stats b").nth(3).textContent()).split("/")[0]);
   check("図鑑：読んだニュースが数えられる（今日・練習・上級）", seenN >= 11 && seenN <= 15, String(seenN));
