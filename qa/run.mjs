@@ -63,6 +63,90 @@ const contrastLow = (page) => page.evaluate(() => {
     const a = lum(fgm), b = lum(bg), r = (Math.max(a, b) + .05) / (Math.min(a, b) + .05), big = parseFloat(cs.fontSize) >= 18.66 || (parseFloat(cs.fontSize) >= 14 && +cs.fontWeight >= 700);
     if (r < (big ? 3 : 4.5)) out.push(`${t.slice(0, 12)}:${r.toFixed(2)}`); } return out; });
 const isNoise = (t) => /fonts\.(googleapis|gstatic)\.com|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|net::ERR_/.test(t);
+async function lateChecks() {
+  const todayAt = process.env.QA_LATE_TODAY || "2026-12-02T03:00:00Z", K = "kabu-news-v1";
+  const dayOf = (off) => new Date(Date.parse(todayAt) + 9 * 3600e3 - off * 864e5).toISOString().slice(0, 10);
+  const A = dayOf(1), B = dayOf(3), today = dayOf(0); // A はきのう（連続に数えたら分かる）、B は月をまたぎやすい3日前
+  const ctx = await browser.newContext({ viewport: { width: 320, height: 760 } });
+  const p = await ctx.newPage(), errs = []; p.on("pageerror", (e) => errs.push(e.message));
+  await p.clock.install({ time: new Date(todayAt) });
+  await p.goto(url);
+  const rec = () => p.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), K);
+  // 何百日分も：あとから遊べる日は「きのう〜7日前・第1回より後・まだ遊んでいない日」だけ。数え方を別に書いて突き合わせる
+  { const r = await p.evaluate(() => { const { lateDays } = window.__kabu, bad = []; const DAY = 864e5, F = Date.parse("2026-11-03");
+      const iso = (t) => new Date(t).toISOString().slice(0, 10);
+      for (let n = 0; n < 500; n++) { const T = F + n * DAY, days = {}, late = {};
+        for (let k = 0; k <= n; k++) { const d = iso(F + k * DAY); if ((k * 7 + n) % 3 === 0) days[d] = { pct: 1 }; else if ((k + n) % 5 === 0) late[d] = { pct: -1 }; }
+        const exp = []; for (let i = 1; i <= 7; i++) { const t = T - i * DAY; if (t >= F && !days[iso(t)] && !late[iso(t)]) exp.push(iso(t)); }
+        const got = lateDays({ days, late }, iso(T)); if (got.join() !== exp.join()) bad.push(`${iso(T)}:${got.join()}≠${exp.join()}`); }
+      return bad; });
+    check("あとから遊べる日を500日分作り、毎回「きのう〜7日前・第1回より後・遊んでいない日」だけになる", r.length === 0, r.slice(0, 3).join(" | ")); }
+  { const r = await p.evaluate(() => { const { lateDays, build, seedOf } = window.__kabu; let ok = 0;
+      for (let n = 0; n < 400; n++) { const d = new Date(Date.parse("2026-11-03") + n * 864e5).toISOString().slice(0, 10); if (JSON.stringify(build(seedOf(d))) === JSON.stringify(build(seedOf(d)))) ok++; } return ok; });
+    check("あとからの5本は日付の種で決まり、400日分とも毎回同じ5本になる", r === 400, String(r)); }
+  const listOf = (d) => p.evaluate((d) => { const { build, seedOf } = window.__kabu; return build(seedOf(d)).map((e) => ({ n: e.n, p: e.p, x: e.x ? 1 : 0 })); }, d);
+  const LA = await listOf(A), LB = await listOf(B);
+  const toMonth = async (d) => { for (let i = 0; i < 24 && (await p.getAttribute(".cal", "data-ym")) !== d.slice(0, 7); i++) await p.click("#calprev"); };
+  const answer = async (e) => p.click(e.p > 0 ? "#buy" : "#sell");
+  // まず今日の5本を遊ぶ（ふだんの人と同じ形にする）
+  await p.click("#go"); for (let i = 0; i < 5; i++) { await p.click("#pass"); await p.click("#next"); } await p.click("#tohome");
+  const before = await rec();
+  const want = Math.min(7, Math.round((Date.parse(today) - Date.parse("2026-11-03")) / 864e5));
+  check("はじめの画面に「カレンダー・あとから遊べる日」のボタンが出て、日数が合う", new RegExp(`あとから遊べる日 ${want}日`).test(await p.textContent("#calbtn")), await p.textContent("#calbtn"));
+  await p.click("#calbtn"); await toMonth(A);
+  check("カレンダーを前の月へ戻すと、あとから遊べる日に点線の印が付く", (await p.locator(`.cal i[data-d="${A}"].can`).count()) === 1);
+  await p.click(`.latebtn[data-d="${A}"]`); await p.waitForTimeout(300);
+  check("あとからの画面に日付と「あとから」が出る", /あとから/.test(await p.textContent(".news small")));
+  for (let i = 0; i < 2; i++) { await answer(LA[i]); await p.click("#next"); }
+  await p.click("#home");
+  await p.click("#calbtn"); await toMonth(B); await p.click(`.latebtn[data-d="${B}"]`); await answer(LB[0]); await p.click("#next"); await p.click("#home");
+  { const r = await rec(); check("別の日を始めても、前の日の途中経過は日付ごとに残る（acur）", r.acur?.[A]?.t === 2 && r.acur?.[B]?.t === 1 && !r.cur, JSON.stringify({ a: r.acur?.[A]?.t, b: r.acur?.[B]?.t })); }
+  await p.click("#calbtn"); await toMonth(A);
+  check("途中の日のボタンに「続きから」が出る", /続きから/.test(await p.textContent(`.latebtn[data-d="${A}"]`)));
+  // 古いタブ：カレンダーを開いたまま、別のタブで同じ日を終える
+  const p2 = await ctx.newPage(); await p2.goto(url); await p2.click("#calbtn");
+  for (let i = 0; i < 24 && (await p2.getAttribute(".cal", "data-ym")) !== A.slice(0, 7); i++) await p2.click("#calprev");
+  await p.click(`.latebtn[data-d="${A}"]`);
+  check("戻ると、前の日の途中（3本目）から続く", (await p.locator(".steps i:nth-child(3).on").count()) === 1);
+  let stampOk = true, comboOk = true;
+  for (let i = 2; i < 5; i++) { await answer(LA[i]);
+    const st = (await p.textContent(".stamp")).trim(), cb = await p.locator(".combo").count();
+    if (st !== (LA[i].x ? "見抜いた！" : "的中！")) stampOk = false; if (cb !== (i >= 1 ? 1 : 0)) comboOk = false;
+    await p.click("#next"); }
+  check("ひねった問題を当てると「見抜いた！」、ふつうは「的中！」の判が出る", stampOk);
+  check("続けて当てると「🎯×N 続けて的中」が出る", comboOk);
+  const tw = LA.filter((e) => e.x).length;
+  check("終わりの画面に、ひねった問題を見抜いた数が出る（ひねりがあるときだけ）", tw ? (await p.textContent(".twsum")).includes(`見抜いた ${tw}/${tw}`) : (await p.locator(".twsum").count()) === 0, tw ? await p.textContent(".twsum") : "ひねりなし");
+  const share = (await p.textContent(".share")).trim();
+  check("あとからの共有の文は「第N回（日付・あとから）」で、答えを出さない", /^株ニュース5本勝負 第\d+回（\d+\/\d+・あとから）\n/.test(share) && !LA.some((e) => share.includes(e.n)), share.split("\n")[0]);
+  check("あとからの結果には、Ko-fi・連続日数・上級のボタンを出さない", (await p.locator(".kofi").count()) === 0 && (await p.locator(".fire").count()) === 0 && (await p.locator("#hard").count()) === 0);
+  { const r = await rec(); check("あとからの記録は late に入り、今日の記録・遊んだ日・最高記録は増えず、途中経過だけ消える", r.late?.[A] && Object.keys(r.days).join() === today && r.plays === 1 && r.best === before.best && r.hits === before.hits && !r.acur?.[A] && r.acur?.[B]?.t === 1 && r.xp === before.xp + 5, JSON.stringify({ late: Object.keys(r.late || {}), days: Object.keys(r.days), plays: r.plays, xp: r.xp })); }
+  await p.click("#tohome");
+  check("きのうをあとから遊んでも、連続日数・遊んだ日に数えない", (await p.locator(".stats b").nth(1).textContent()) === "1" && (await p.locator(".stats b").nth(0).textContent()) === "1");
+  await p.click("#calbtn"); await toMonth(A);
+  check("あとから遊んだ日は、カレンダーに今日の5本と別の印（枠）が付き、ボタンは消える", (await p.locator(`.cal i[data-d="${A}"]:is(.lu,.ld)`).count()) === 1 && (await p.locator(`.latebtn[data-d="${A}"]`).count()) === 0 && (await p.locator(`.cal i[data-d="${A}"]:is(.pu,.pd)`).count()) === 0);
+  await p2.click(`.latebtn[data-d="${A}"]`);
+  check("古いタブで遊び終えた日を選ぶと、知らせてはじめの画面へ戻る（もう一度遊べない）", /もう遊び終えています/.test(await p2.textContent("#toast")) && (await p2.locator("#go").count()) === 1);
+  { const n = await p.evaluate(() => { try { start("late", "2020-01-01"); } catch (e) { return "err"; } return document.querySelector("#toast").textContent; });
+    check("7日より前の日は、あとから遊べない", /7日前まで/.test(n), n); }
+  // 320px：カレンダーと実績の画面が崩れない・押す所は44px以上・キーで動かすと枠が出る
+  await p.click("#calbtn");
+  for (const where of ["カレンダー", "実績と図鑑"]) {
+    if (where === "実績と図鑑") { await p.click("#back"); await p.click("#col"); }
+    const r = await p.evaluate(() => ({ over: document.documentElement.scrollWidth > innerWidth, small: [...document.querySelectorAll("#screen button,#screen a")].filter((b) => b.offsetParent).map((b) => { const r = b.getBoundingClientRect(); return [b.id || b.textContent.trim().slice(0, 8), Math.round(r.height)]; }).filter(([, h]) => h < 44) }));
+    check(`幅320pxの${where}の画面がはみ出さず、押す所は44px以上`, !r.over && r.small.length === 0, JSON.stringify(r)); }
+  { await p.click("#back"); await p.click("#calbtn"); await p.keyboard.press("Tab");
+    const bad = await p.evaluate(() => { const out = []; for (const el of document.querySelectorAll("button:not(:disabled),a[href],summary")) { if (!el.offsetParent) continue; el.focus();
+        const cs = getComputedStyle(el); if (!el.matches(":focus-visible") || cs.outlineStyle === "none" || parseFloat(cs.outlineWidth) < 2) out.push(el.id || el.textContent.trim().slice(0, 8)); } return out; });
+    check("キーで動かすと、どのボタン・リンクにも2px以上の枠が出る（:focus-visible）", bad.length === 0, bad.join(",")); }
+  { const r = await p.evaluate(() => window.__kabu.playedDays({ days: { a: 1, b: 1 }, late: { b: 1, c: 1 } }));
+    check("実績「10日遊ぶ」などの日数は、今日の5本とあとからの合計（同じ日は1回）", r === 3, String(r)); }
+  { await p.evaluate(() => { const r = JSON.parse(localStorage.getItem("kabu-news-v1")); r.days = {}; localStorage.setItem("kabu-news-v1", JSON.stringify(r)); home(); });
+    const s0 = await p.locator(".stats b").nth(1).textContent(); await p.click("#calbtn"); const cal0 = await p.textContent(".calnav");
+    check("連続が0日のときは、記録にもカレンダーにも連続の数を出さない（休んだ日を責めない）", s0 === "-" && !/連続/.test(cal0), `${s0} / ${cal0}`); }
+  check("あとから遊ぶ間にページのエラーが無い", errs.length === 0, errs.join(" / "));
+  await ctx.close();
+}
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 800 } });
   const errors = [];
@@ -133,7 +217,7 @@ try {
   { const n = await page.locator(".mline circle").count(), lab = await page.getAttribute(".mline", "aria-label");
     check("終わりの画面に持ち金の動き（はじめ＋1本ごとの6点）の線が出て、読み上げ用の説明がある", n === 6 && /持ち金の動き：100万円から/.test(lab || ""), `${n} ${lab}`); }
   { await page.waitForTimeout(1000); const low = await contrastLow(page); check("終わりの画面の文字は背景と十分な濃さの差がある", low.length === 0, low.join(" / ")); }
-  check("今日の5本を終えた画面に Ko-fi のひとこと（ただのリンク1行）が出る", money < 1000000 ? (await page.locator(".kofi").count()) === 0 : (await page.locator(".kofi a[href='https://ko-fi.com/satouaaaaa']").count()) === 1);
+  check("今日の5本を黒字で終えた画面にだけ Ko-fi のひとこと（ただのリンク1行）が出る（±0%に丸まる赤字では出さない）", money <= 1000000 ? (await page.locator(".kofi").count()) === 0 : (await page.locator(".kofi a[href='https://ko-fi.com/satouaaaaa']").count()) === 1);
   { const rival = (await page.textContent(".rival")).replace(/\s+/g, "");
     const exp = await page.evaluate(() => { const s = (str) => { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
       const d = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); let m = 1000000;
@@ -182,7 +266,7 @@ try {
     const seen = {}; for (const e of EVENTS) if (!unseen.includes(e)) seen[e.n] = 1; let ok = 0;
     for (let s = 0; s < 1000; s++) if (build(s, false, seen).every((e) => !seen[e.n])) ok++; return ok; });
   check("練習は、まだ読んでいないニュースを先に出す（1000回）", pr >= 990, `${pr}/1000`);
-  check("今日の5本のあと、はじめの画面に上級の5本と実績・図鑑のボタンが出る", (await page.locator("#hard").count()) === 1 && /実績と図鑑（\d+\/18）/.test(await page.textContent("#col")));
+  check("今日の5本のあと、はじめの画面に上級の5本と実績・図鑑のボタンが出る", (await page.locator("#hard").count()) === 1 && /実績と図鑑（\d+\/20）/.test(await page.textContent("#col")));
   await page.click("#hard");
   check("上級ではいつも全力（全力の切り替えが無い）", (await page.locator("#all").count()) === 0 && /いつも全力/.test(await page.textContent("#screen")));
   let twists = 0;
@@ -204,7 +288,7 @@ try {
   check("上級は1日1回（終えると結果だけ出る）", (await page.locator("#hard").count()) === 0 && (await page.locator(".hardbox").count()) === 1);
   await page.click("#col");
   { const low = await contrastLow(page); check("実績と図鑑の画面の文字は背景と十分な濃さの差がある", low.length === 0, low.join(" / ")); }
-  check("実績が18個あり（遠いものはたたむ）、手に入れた実績が先頭に出る", (await page.locator(".ach > div").count()) === 18 && (await page.locator(".ach > div.got").count()) >= 1 && await page.locator(".ach > div").first().evaluate((d) => d.classList.contains("got")) && (await page.locator("details.more .ach > div").count()) === 18 - 4 - (await page.locator(".ach > div.got").count()));
+  check("実績が20個あり（遠いものはたたむ）、手に入れた実績が先頭に出る", (await page.locator(".ach > div").count()) === 20 && (await page.locator(".ach > div.got").count()) >= 1 && await page.locator(".ach > div").first().evaluate((d) => d.classList.contains("got")) && (await page.locator("details.more .ach > div").count()) === 20 - 4 - (await page.locator(".ach > div.got").count()));
   check("まだの実績には進み具合が出る", (await page.locator(".ach div:not(.got) .bar").count()) >= 1);
   const seenN = Number((await page.locator(".stats b").nth(3).textContent()).split("/")[0]);
   check("図鑑：読んだニュースが数えられる（今日・練習・上級）", seenN >= 11 && seenN <= 15, String(seenN));
@@ -346,6 +430,9 @@ try {
   const days2 = await pd.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("kabu-news-v1")).days).sort());
   check("次の日の「今日の5本」を最後まで遊ぶと、次の日の記録になる", days2.join() === "2026-11-03,2026-11-04", days2.join());
   await ctxDay.close();
+
+  // 5c. あとから遊ぶ（取りこぼした日）。今日はふだん 12/2（月をまたぐ）。QA_LATE_TODAY で別の日にも変えられる
+  await lateChecks();
 
   const ctxTab = await browser.newContext({ viewport: { width: 390, height: 800 } });
   const ta = await ctxTab.newPage(), tb = await ctxTab.newPage();
