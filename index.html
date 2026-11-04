@@ -508,11 +508,15 @@ function turn(){
 function typeText(el,s){if(matchMedia("(prefers-reduced-motion: reduce)").matches){el.textContent=s;return}
   let i=0;el.textContent="";clearInterval(typeText.h);typeText.h=setInterval(()=>{el.textContent=s.slice(0,++i);if(i>=s.length)clearInterval(typeText.h)},28)}
 // 答える前に読み直し、別のタブが先に進めていたら保存済みの進み具合に合わせる（答えを食い違わせない）
+// 同じ日の今日の5本とあとからは、どちらか一方だけを記録する（0時をまたいだ別のタブで二重に数えない）
+function dupDay(){if(G.late)return !!REC.days[G.day];return !!(G.daily&&!G.hard&&REC.late[G.day])}
+function dropDup(){if(G.late)delete REC.acur[G.day];else if(REC.cur&&REC.cur.day===G.day)delete REC.cur;save(REC);toast("この日はもう遊び終えています");home()}
 function stale(){
-  if(G.late){sync();if(REC.late[G.day]){end();return true}const c=REC.acur[G.day];
+  if(G.late){sync();if(REC.late[G.day]){end();return true}if(dupDay()){dropDup();return true}const c=REC.acur[G.day];
     if(c&&(c.t>G.t||c.t===G.t&&c.marks.join()!==G.marks.join())){G={...c,daily:false,hard:false,late:true};toast("別の画面で進めたところから続けます");G.t<TURNS?turn():end();return true}return false}
   if(!G.daily)return false;sync();
   if(REC[dk(G)][G.day]){end();return true}
+  if(dupDay()){dropDup();return true}
   const c=REC[ck(G)];
   if(c&&c.day===G.day&&(c.t>G.t||c.t===G.t&&c.marks.join()!==G.marks.join())){G={...c,daily:true,hard:G.hard};toast("別の画面で進めたところから続けます");G.t<TURNS?turn():end();return true}
   return false;
@@ -550,6 +554,7 @@ function pick(side){
 function end(){
   sync();const day=G.day||jstDay(),d=md(day);
   // 別のタブで今日の5本を先に終えていたら、その記録を見せる（画面と記録を食い違わせない）
+  if(!(G.late?REC.late[day]:G.daily&&REC[dk(G)][day])&&dupDay()){dropDup();return}
   const old=G.late?REC.late[day]:G.daily&&REC[dk(G)][day],before=new Set(achs().filter(a=>a.got).map(a=>a.id));
   const pct=old?old.pct:Math.round((G.money/START-1)*100),rank=RANKS.find(r=>pct>=r[0])[1];
   const url=/^https:/.test(location.protocol)&&/github\.io$/.test(location.hostname)?"\n"+location.origin+location.pathname:"";
@@ -564,7 +569,7 @@ function end(){
     if(G.daily){if(l.x&&l.s){REC.tw[0]++;REC.tw[1]+=l.h}if(l.a&&l.h)REC.ai++}}
   const newWords=G.words.filter(w=>!REC.words[w]);for(const w of G.words)REC.words[w]=1;
   const tBefore=title().n,rv=!old&&G.list.length===TURNS?rivalMoney(G.list):null;
-  const wDone=old?false:(REC.xp+=G.hits,countWeek({daily:G.daily,hard:G.hard,review:G.review,hits:G.hits,log:G.log||[],pct,full:G.daily&&!old,win:rv!=null&&G.money>rv}));
+  const wDone=old?false:(REC.xp+=G.hits,countWeek({daily:G.daily,hard:G.hard,review:G.review,hits:G.hits,log:G.log||[],pct,full:(G.daily||G.late)&&!old,win:rv!=null&&G.money>rv}));
   const tUp=title().n!==tBefore?title():null;
   const got=achs().filter(a=>a.got&&!before.has(a.id));for(const a of got)REC.ach[a.id]=day;save(REC);
   const st=streak();

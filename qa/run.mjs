@@ -144,6 +144,20 @@ async function lateChecks() {
   { await p.evaluate(() => { const r = JSON.parse(localStorage.getItem("kabu-news-v1")); r.days = {}; localStorage.setItem("kabu-news-v1", JSON.stringify(r)); home(); });
     const s0 = await p.locator(".stats b").nth(1).textContent(); await p.click("#calbtn"); const cal0 = await p.textContent(".calnav");
     check("連続が0日のときは、記録にもカレンダーにも連続の数を出さない（休んだ日を責めない）", s0 === "-" && !/連続/.test(cal0), `${s0} / ${cal0}`); }
+  // 0時をまたいだ別のタブ：同じ日の今日の5本とあとからは、どちらか一方だけを記録する（2026-11-04 CodeRabbit の指摘）
+  { const setDay = (on) => p.evaluate(([k, d, on]) => { const r = JSON.parse(localStorage.getItem(k)); if (on) r.days[d] = { pct: 0, marks: "", text: "" }; else delete r.days[d]; localStorage.setItem(k, JSON.stringify(r)); }, [K, B, on]);
+    const openB = async () => { await p.evaluate(() => home()); await p.click("#calbtn"); await toMonth(B); await p.click(`.latebtn[data-d="${B}"]`); };
+    await openB(); await setDay(true); await answer(LB[1]);
+    { const r = await rec(); check("あとからの途中で、同じ日の今日の5本が別のタブで終わっていたら、答えずに知らせて戻る（late に記録しない）", /もう遊び終えています/.test(await p.textContent("#toast")) && (await p.locator("#go").count()) === 1 && !r.late?.[B] && !r.acur?.[B], JSON.stringify({ late: Object.keys(r.late || {}), acur: Object.keys(r.acur || {}) })); }
+    await setDay(false); await openB();
+    for (let i = 0; i < 4; i++) { await answer(LB[i]); await p.click("#next"); }
+    await answer(LB[4]); await setDay(true); await p.click("#next");
+    { const r = await rec(); check("最後の1本のあとに同じ日の今日の5本が終わっていても、あとからの記録を書かない（end でも確かめる）", /もう遊び終えています/.test(await p.textContent("#toast")) && !r.late?.[B] && (await p.locator(".share").count()) === 0, JSON.stringify(Object.keys(r.late || {}))); }
+    await setDay(false); await openB();
+    await p.evaluate(() => { const orig = countWeek; window.__cw = null; countWeek = (c) => { window.__cw = c; return orig(c); }; });
+    for (let i = 0; i < 4; i++) { await answer(LB[i]); await p.click("#next"); }
+    await answer(LB[4]); await p.evaluate(() => { G.money = 1200000; }); await p.click("#next");
+    { const c = await p.evaluate(() => window.__cw); check("あとから遊んだ回も、ミッション「1回で+10%以上」に数える（full）", c?.full === true && c.pct >= 10, JSON.stringify(c && { full: c.full, pct: c.pct })); } }
   check("あとから遊ぶ間にページのエラーが無い", errs.length === 0, errs.join(" / "));
   await ctx.close();
 }
