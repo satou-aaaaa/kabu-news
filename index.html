@@ -81,6 +81,8 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .buy small,.sell small{display:block;font-size:11px;font-weight:700}
 .pass{grid-column:1/-1;background:transparent;border:1px solid var(--line);color:var(--muted);font-size:14px;padding:13px 10px}
 .main{background:var(--gold);color:var(--ink);box-shadow:0 5px 0 #a87d1e;width:100%}
+.main.alt{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:15px;background:#f4c04e1f;color:var(--gold);border:2px solid var(--gold);box-shadow:0 5px 0 #a87d1e88}
+.main.alt small{font-size:12px;color:var(--muted);font-weight:700}
 .ghost{background:transparent;border:1px solid var(--line);color:var(--paper);width:100%;font-size:14px;padding:12px}
 .allin{display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;color:var(--muted);cursor:pointer;user-select:none}
 .allin input{position:absolute;opacity:0}
@@ -425,7 +427,9 @@ function lateDays(rec=REC,today=jstDay()){const out=[],t=Date.parse(today);
   for(let i=1;i<=7;i++){const d=new Date(t-i*864e5).toISOString().slice(0,10);if(d>=FIRST&&!rec.days[d]&&!(rec.late||{})[d])out.push(d)}return out}
 // ---- 肩書き：当てた本数（どの遊び方でも）で少しずつ上がる ----
 const TITLES=[[0,"🌱","見習い"],[10,"📰","駆け出し"],[30,"📊","中堅"],[60,"🎯","腕利き"],[100,"🏅","ベテラン"],[160,"👑","名人"],[250,"🌟","伝説の読み手"]];
-const SURV_AT=10; // 連続的中チャレンジは「駆け出し」から
+// 連続的中チャレンジは、今日の5本（か、あとから遊ぶ5本）を1回終えたら開く。前の決まり（肩書き「駆け出し」）で開いていた人はそのまま
+const survOpen=(r=REC)=>r.plays>0||Object.keys(r.late||{}).length>0||Object.keys(r.hdays||{}).length>0||r.xp>=TITLES[1][0];
+const survBtn=(id,lead,home=true)=>`<button class="main alt" id="${id}">⛓️ ${lead}<small>${home?"何本続けて当てられる？":"外れるまで何本続くか"}・何度でも${home&&REC.sbest?`・最高 ${REC.sbest}本`:""}</small></button>`;
 function title(xp=REC.xp){let i=TITLES.length-1;while(xp<TITLES[i][0])i--;return{i,e:TITLES[i][1],n:TITLES[i][2],next:TITLES[i+1]}}
 // ---- 今週のミッション：月曜に変わる3つ（だれでも同じ） ----
 function weekKey(){const wd=(new Date(Date.parse(jstDay())).getUTCDay()+6)%7;return jstDay(wd)}
@@ -440,9 +444,9 @@ const MISSIONS=[
   ["rival2","🆚","見出しどおりに2回勝つ",2,c=>c.win?1:0],
   ["surv5","⛓️","連続的中チャレンジで5本",1,c=>c.surv>=5?1:0],
   ["rev3","📝","復習で3本当てる",3,c=>c.review?c.hits:0]];
-function pickMissions(key,xp){const r=rng(seedOf(key+"w")),pool=MISSIONS.slice(),out=[];
-  while(out.length<3){const m=pool.splice(Math.floor(r()*pool.length),1)[0];if(m[0]==="surv5"&&xp<SURV_AT)continue;out.push(m)}return out}
-const missions=()=>pickMissions(weekKey(),REC.xp);
+function pickMissions(key,open){const r=rng(seedOf(key+"w")),pool=MISSIONS.slice(),out=[];
+  while(out.length<3){const m=pool.splice(Math.floor(r()*pool.length),1)[0];if(m[0]==="surv5"&&!open)continue;out.push(m)}return out}
+const missions=()=>pickMissions(weekKey(),survOpen());
 function wk(){if(!REC.wk||REC.wk.k!==weekKey())REC.wk={k:weekKey(),v:{},co:{}};return REC.wk}
 // 遊び終えたら今週のミッションを進める。3つそろった週は🏅を1つ
 function countWeek(c){const w=wk();if(c.log)for(const l of c.log)if(l.h)w.co[l.c]=1;c.cos=Object.keys(w.co).length;
@@ -527,11 +531,13 @@ function home(){
     ${first?`<div class="intro" aria-label="遊び方"><div><i>📰</i>ニュースを<br>読む</div><div><i>⚖️</i>買う・売るを<br>決める</div><div><i>💰</i>当たれば<br>増える</div></div>`:""}
     ${today?`<div class="share">今日の結果\n${shown(today.text)}</div><p class="next">次の5本まで あと <b id="nextin">${untilNext()}</b></p>`:""}
     ${today?shareRow():""}
+    ${today&&survOpen()?survBtn("surv","連続的中チャレンジ"):""}
     <button class="${today?"ghost":"main"}" id="go">${today?"練習でもう一回":REC.cur&&REC.cur.day===jstDay()?`今日の5本の続き（${REC.cur.t+1}本目から）`:`第${roundNo(jstDay())}回 今日の5本をはじめる`}</button>
     ${today?"":`<p class="sub">だれでも同じ5本・1日1回・3分${st?`　<span class="fire">🔥 ${st}日連続</span>`:""}</p>`}
+    ${!today&&survOpen()?survBtn("surv","連続的中チャレンジ"):""}
     ${today?hardBox():first?"":`<p class="sub">🔒 上級の5本は、今日の5本のあとで</p>`}
     ${first?"":titleBox()+weekBox()}
-    ${first?"":REC.xp>=SURV_AT?`<button class="hardbtn" id="surv">⛓️ 連続的中チャレンジ<small>外れるまで何本続くか・何度でも${REC.sbest?`・最高${REC.sbest}本`:""}</small></button>`:`<p class="sub">🔒 連続的中チャレンジは、肩書き「駆け出し」から（あと${SURV_AT-REC.xp}本当てる）</p>`}
+    ${first||survOpen()?"":`<p class="sub">🔒 連続的中チャレンジは、今日の5本を1回終えると開く</p>`}
     ${first||!Object.keys(REC.miss).length?"":`<button class="ghost" id="rev">まちがえたニュースの復習（${Object.keys(REC.miss).length}本）</button>`}
     ${first?"":`<button class="ghost" id="col">実績と図鑑（${achs().filter(a=>a.got).length}/${ACH.length}）</button>`}
     ${first?"":(n=>`<button class="ghost" id="calbtn">📅 カレンダー${n?`・あとから遊べる日 ${n}日`:""}</button>`)(lateDays().length)}
@@ -599,7 +605,7 @@ function howto(){
     <p>4. 「今日の5本」はだれでも同じ問題で、1日1回。練習は何度でも遊べます。</p>
     <p>5. 今日の5本を終えると<b>上級の5本</b>に挑戦できます。いつも全力で、見出しの印象と逆に動くニュースが多めです。</p>
     <p>6. 結果の画面では、見出しの印象どおりに張った「見出しどおり」と比べられます。ひねったニュースを見抜けば勝てます。</p>
-    <p>7. 当てるほど<b>肩書き</b>が上がり、「駆け出し」になると<b>連続的中チャレンジ</b>（外れるまで続く）が開きます。<b>今週のミッション</b>は毎週月曜に入れ替わります。</p>
+    <p>7. 当てるほど<b>肩書き</b>が上がり、今日の5本を1回終えると<b>連続的中チャレンジ</b>（外れるまで続く・何度でも）が開きます。<b>今週のミッション</b>は毎週月曜に入れ替わります。</p>
     <p>8. 練習のあとは<b>挑戦状</b>を出せます。リンクを開いた友だちが同じ5本で遊び、成績を比べられます。</p>
     <p>9. 遊べなかった日の今日の5本は、7日前まで<b>カレンダー</b>からあとから遊べます（連続の日には数えません）。</p>
     <p class="sec">覚えた言葉（${ws.length}/${Object.keys(TERMS).length}）</p>
@@ -752,6 +758,7 @@ function end(){
     ${got.length?`<div class="newach" role="status">${got.map(a=>`<div><i>${a.e}</i><span><small>実績を手に入れた</small><b>${a.n}</b></span></div>`).join("")}</div>`:""}
     ${growRow(tUp,wDone)}
     ${G.daily&&!G.hard&&!REC.hdays[day]?`<button class="hardbtn" id="hard">⛰️ 上級の5本に挑戦<small>いつも全力・ひねった問題が多め</small></button>`:""}
+    ${(G.daily||G.late)&&!old?survBtn("surv",`続けて遊ぶ：連続的中チャレンジ${REC.sbest?`（最高 ${REC.sbest}本）`:""}`,false):""}
     ${G.daily?`<p class="next">次の5本まで あと <b id="nextin">${untilNext()}</b></p>`:""}
     ${recap?`<p class="sec">ふり返り</p><div class="recap">${recap}</div>`:""}
     <p class="sec">今日出てきた言葉${newWords.length?`（新しく${newWords.length}つ）`:""}</p>
@@ -766,7 +773,7 @@ function end(){
   beep("end");if(pct>=20)confetti();
   bindShare(text);tick();$("again").onclick=()=>start(false);if($("morelate"))$("morelate").onclick=calScreen;
   if(G.chal){CHAL=null;try{history.replaceState(null,"",location.pathname)}catch{}}
-  if($("dare")){const u=dareUrl(G.list,pct);$("dare").dataset.url=u;$("dare").onclick=()=>{const t=`株ニュース5本勝負の挑戦状\nわたしは ${pct>=0?"+":""}${pct}%。同じ5本で勝てる？\n${u}`;if(navigator.share)navigator.share({text:t}).catch(()=>{});else copy(t)}}$("tohome").onclick=home;if($("hard"))$("hard").onclick=()=>start("hard");
+  if($("dare")){const u=dareUrl(G.list,pct);$("dare").dataset.url=u;$("dare").onclick=()=>{const t=`株ニュース5本勝負の挑戦状\nわたしは ${pct>=0?"+":""}${pct}%。同じ5本で勝てる？\n${u}`;if(navigator.share)navigator.share({text:t}).catch(()=>{});else copy(t)}}$("tohome").onclick=home;if($("hard"))$("hard").onclick=()=>start("hard");if($("surv"))$("surv").onclick=()=>start("surv");
 }
 // 持ち金の動き（1本ごと）。100万円の線より上は赤、下は青
 function moneyLine(mh){const W=280,H=60,lo=Math.min(START,...mh),hi=Math.max(START,...mh),sp=hi-lo||1,x=i=>i*(W/(mh.length-1)),y=v=>H-(v-lo)/sp*H;
@@ -774,7 +781,7 @@ function moneyLine(mh){const W=280,H=60,lo=Math.min(START,...mh),hi=Math.max(STA
   return `<svg class="mline" viewBox="-6 -6 ${W+12} ${H+12}" role="img" aria-label="持ち金の動き：${man(START)}から${man(last)}"><line x1="0" x2="${W}" y1="${y(START)}" y2="${y(START)}" stroke="#ffffff40" stroke-dasharray="4 4"/><polyline points="${pts}" fill="none" stroke="${last>=START?"var(--up)":"var(--down)"}" stroke-width="3" stroke-linejoin="round"/>${mh.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.5" fill="${i&&v<mh[i-1]?"var(--down)":i&&v>mh[i-1]?"var(--up)":"#ffffff90"}"/>`).join("")}</svg>`}
 // 肩書きが上がった・今週のミッションがそろった知らせ
 function growRow(tUp,wDone){const t=title(),w=wk(),ms=missions(),done=ms.filter(m=>(w.v[m[0]]||0)>=m[3]).length;
-  return `<p class="sub growline">${t.e} ${t.n}${t.next?`・次の「${t.next[2]}」まで あと${t.next[0]-REC.xp}本`:""}<br>今週のミッション ${done}/3${ms.filter(m=>(w.v[m[0]]||0)<m[3]).slice(0,1).map(m=>`・次は「${m[2]}」${w.v[m[0]]||0}/${m[3]}`).join("")}</p>`+(tUp?`<div class="newach" role="status"><div><i>${tUp.e}</i><span><small>肩書きが上がった</small><b>${tUp.n}</b></span></div>${tUp.n==="駆け出し"?`<div><i>⛓️</i><span><small>新しい遊び方が開いた</small><b>連続的中チャレンジ</b></span></div>`:""}</div>`:"")+
+  return `<p class="sub growline">${t.e} ${t.n}${t.next?`・次の「${t.next[2]}」まで あと${t.next[0]-REC.xp}本`:""}<br>今週のミッション ${done}/3${ms.filter(m=>(w.v[m[0]]||0)<m[3]).slice(0,1).map(m=>`・次は「${m[2]}」${w.v[m[0]]||0}/${m[3]}`).join("")}</p>`+(tUp?`<div class="newach" role="status"><div><i>${tUp.e}</i><span><small>肩書きが上がった</small><b>${tUp.n}</b></span></div></div>`:"")+
   (wDone?`<div class="newach" role="status"><div><i>🏅</i><span><small>今週のミッションを3つそろえた</small><b>🏅×${REC.wm}</b></span></div></div>`:"")}
 // 連続的中チャレンジの終わり：何本続いたか（共有の文に答えは出さない）
 function survEnd(){
@@ -822,7 +829,7 @@ addEventListener("keydown",ev=>{if(ev.target.tagName==="INPUT")return;const m={"
 $("snd").onclick=()=>{const on=!REC.sound;sync();REC.sound=on;save(REC);sndIcon();beep("tap")};
 $("home").onclick=()=>{clearInterval(typeText.h);home()};
 if("serviceWorker" in navigator&&location.protocol==="https:"&&/github\.io$/.test(location.hostname))navigator.serviceWorker.register("sw.js").catch(()=>{});
-window.__kabu={build,lateDays,seedOf,playedDays,EVENTS,COMPANIES,TERMS,TURNS,pickMissions,MISSIONS,TITLES,weekKey};
+window.__kabu={survOpen,build,lateDays,seedOf,playedDays,EVENTS,COMPANIES,TERMS,TURNS,pickMissions,MISSIONS,TITLES,weekKey};
 tape();sndIcon();home();
 </script>
 </body>
