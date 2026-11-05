@@ -31,7 +31,7 @@
 /* 夜の取引所。会社は紙の銘柄カード、上げは赤・下げは青（日本の相場の色） */
 :root{
   --stage:#161a33; --stage2:#26215a; --paper:#f6efe0; --ink:#211a14; --ink2:#6b6157;
-  --gold:#f4c04e; --up:#e5483d; --down:#3c7fe0; --muted:#b9b4d6; --line:#ffffff26; --panel:#00000038;
+  --gold:#f4c04e; --up:#ff6b5e; --down:#5b9bff; --muted:#b9b4d6; --line:#ffffff26; --panel:#00000038;
   --f-disp:"Dela Gothic One","Hiragino Sans","Yu Gothic",sans-serif;
   --f-body:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
   color-scheme:dark;
@@ -147,8 +147,8 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .twist{display:inline-block;background:var(--gold);color:var(--ink);border-radius:6px;font-size:11px;font-weight:900;padding:1px 6px;margin-right:6px;vertical-align:2px}
 .more summary{cursor:pointer;color:var(--muted);font-size:13px;padding:10px 0;min-height:24px}.more[open] summary{margin-bottom:8px}
 .ach,.zukan{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.ach div,.zukan div{background:var(--panel);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;font-size:13px;line-height:1.4;opacity:.6}
-.ach div.got,.zukan div:not(.no){opacity:1}
+.ach div,.zukan div{background:var(--panel);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;font-size:13px;line-height:1.4;border:1px dashed var(--muted)}
+.ach div.got,.zukan div:not(.no){border:1px solid var(--gold)}
 .ach i,.zukan i{font-style:normal;font-size:24px}
 .ach small,.zukan small{color:var(--muted);font-size:11px}
 .cobtn{margin-top:6px;min-height:44px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--gold);font:inherit;font-size:12px;font-weight:900;cursor:pointer}.sec small{font-weight:400;letter-spacing:0;margin-left:4px}

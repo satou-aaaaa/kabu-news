@@ -99,13 +99,13 @@ async function go(page, sc) {
   await page.waitForTimeout(700); // 出てくる動きが終わるのを待つ
 }
 
-// 3. コントラスト（字のある要素ごとに、字の色とうしろの色を重ねて比べる。うしろが絵・グラデーションのときは測れないので数えない）
+// 3. コントラスト（字のある要素ごとに、字の色とうしろの色を重ねて比べる。うしろが絵・グラデーションのときは測れないので数えない。html・body の地の模様は地の色で測る）
 const contrastFn = (skip) => {
   const parse = (c) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(/[,/\s]+/).filter(Boolean).map(Number); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; };
   const over = (top, bot) => { const a = top[3] + bot[3] * (1 - top[3]); return a === 0 ? [0, 0, 0, 0] : [0, 1, 2].map((i) => (top[i] * top[3] + bot[i] * bot[3] * (1 - top[3])) / a).concat(a); };
   const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
   const bad = [];
-  let measured = 0;
+  let measured = 0, skipped = 0;
   for (const el of document.querySelectorAll("body *")) {
     if (el.closest("svg,canvas,[aria-hidden=true],[hidden],dialog:not([open])") || (skip && el.closest(skip))) continue;
     const own = [...el.childNodes].some((n) => n.nodeType === 3 && /[^\s\p{Emoji_Presentation}\p{Extended_Pictographic}‍️★☆・…、。]/u.test(n.textContent));
@@ -119,12 +119,16 @@ const contrastFn = (skip) => {
     while (node && node.nodeType === 1) {
       const s = getComputedStyle(node);
       opa *= +s.opacity;
-      if (s.backgroundImage && s.backgroundImage !== "none") { unsure = true; break; }
-      const c = parse(s.backgroundColor); if (c && c[3] > 0) layers.push(c);
+      const c = parse(s.backgroundColor);
+      if (s.backgroundImage && s.backgroundImage !== "none") {
+        // html・body の地の模様（和紙・布目など）は、下に敷いた地の色で測る（2026-11-05 まんなか漢字で全部の字が測れず、金の字の不足を見逃した）
+        if ((node === document.body || node === document.documentElement) && c && c[3] === 1) { layers.push(c); break; }
+        unsure = true; break;
+      } if (c && c[3] > 0) layers.push(c);
       if (c && c[3] === 1) break;
       node = node.parentElement;
     }
-    if (unsure) continue;
+    if (unsure) { skipped++; continue; }
     layers.push([255, 255, 255, 1]);
     for (const c of layers.reverse()) bg = over(c, bg);
     fg = over([fg[0], fg[1], fg[2], fg[3] * opa], bg);
@@ -137,15 +141,15 @@ const contrastFn = (skip) => {
       bad.push(`${name}「${el.textContent.trim().slice(0, 12)}」${ratio.toFixed(2)}<${need}`);
     }
   }
-  return { bad, measured };
+  return { bad, measured, skipped };
 };
 for (const [label, settings] of [["ふつう", null], ["設定を全部入れた", ALL_ON]]) {
   for (const sc of screens) {
     const { ctx, page, errors } = await openPage({ settings });
     try {
       await go(page, sc);
-      const { bad, measured } = await page.evaluate(contrastFn, skipSel);
-      check(`文字のコントラストが 4.5:1 以上（大きい字は 3:1）：${sc.name}・${label}（WCAG 1.4.3）`, measured > 0 && bad.length === 0, bad.length ? `${bad.length}か所 ${bad.slice(0, 8).join(" / ")}` : `${measured}か所を測った`);
+      const { bad, measured, skipped } = await page.evaluate(contrastFn, skipSel);
+      check(`文字のコントラストが 4.5:1 以上（大きい字は 3:1）：${sc.name}・${label}（WCAG 1.4.3）`, measured > 0 && bad.length === 0, bad.length ? `${bad.length}か所 ${bad.slice(0, 8).join(" / ")}` : `${measured}か所を測った${skipped ? `（うしろが絵・グラデーションで測れない${skipped}か所は自分の目で見る）` : ""}`);
       check(`エラーが出ない：${sc.name}・${label}`, errors.length === 0, errors.join(" / "));
       // 設定の印（html の class）で画面そのものがずれないか（2026-11-05 html.a11y-say にボタンの fixed が当たり、画面が左へずれた。incidents/2026-11-05-a11y-say-class-clash.md）
       const lay = await page.evaluate(() => ({ pos: getComputedStyle(document.documentElement).position, wide: document.documentElement.scrollWidth > innerWidth + 1, left: Math.round(document.body.getBoundingClientRect().left) }));
