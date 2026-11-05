@@ -6,6 +6,7 @@ import http from "node:http";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { checkTransfer } from "./transfer-check.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const url = "file://" + path.join(root, "index.html");
@@ -598,6 +599,9 @@ try {
 } catch (e) {
   check("QA の実行が途中で止まった", false, String(e.message || e).split("\n")[0]);
 } finally {
+  try { // 引き継ぎコード（別の端末へ記録を移す。shared-workflows template/qa/transfer-check.mjs）
+    await checkTransfer({ browser, url, game: "kabu-news", sample: { "kabu-news-v1": JSON.stringify({ xp: 3 }) }, check });
+  } catch (e) { check("引き継ぎコード", false, e.message.split("\n")[0]); }
   await browser.close();
 }
 

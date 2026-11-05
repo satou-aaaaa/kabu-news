@@ -348,6 +348,8 @@ html.a11y-say body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))!i
 })();
 </script>
 <!-- a11y:end -->
+<!-- 引き継ぎコード（shared-workflows template/transfer.js の写し）。ゲームの script より前に置く -->
+<script src="transfer.js" data-game="kabu-news" data-keys="kabu-news-v1"></script>
 </head>
 <body>
 <div class="tape" aria-hidden="true"><span id="tape"></span></div>
@@ -548,7 +550,8 @@ function home(){
       <div><b>${acc}%</b><small>的中率</small></div><div><b>${REC.best?man(REC.best).replace("万円",""):"-"}</b><small>最高(万円)</small></div></div>
     <div class="week" aria-label="この7日の成績">${week.map(w=>`<div>${w.r?`<span class="${w.r.pct>=0?"u":"d"}">${sign(w.r.pct)}${Math.abs(w.r.pct)}</span><i style="height:${Math.abs(w.r.pct)/maxAbs*48+2}px;background:var(--${w.r.pct>=0?"up":"down"})"></i>`:`<i style="background:var(--line)"></i>`}${+w.d.slice(8)}日</div>`).join("")}</div>`}
     <button class="ghost" id="how">遊び方と覚えた言葉</button>
-    <button class="ghost" data-a11y-open>見やすさの設定（文字・色・動き）</button>`;
+    <button class="ghost" data-a11y-open>見やすさの設定（文字・色・動き）</button>
+    <button class="ghost" type="button" data-hk>記録の引き継ぎ（別の端末へ）</button>`;
   $("go").onclick=()=>start(!today);$("how").onclick=howto;
   if(today)bindShare(today.text);tick();
   if($("hard"))$("hard").onclick=()=>start("hard");if($("col"))$("col").onclick=collection;if($("calbtn"))$("calbtn").onclick=calScreen;if($("rev"))$("rev").onclick=()=>start("review");if($("surv"))$("surv").onclick=()=>start("surv");if($("chal"))$("chal").onclick=()=>start("chal");
