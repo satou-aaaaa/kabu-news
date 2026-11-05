@@ -55,9 +55,10 @@ h1 button{all:unset;cursor:pointer}
 .icon{all:unset;cursor:pointer;font-size:18px;width:44px;height:44px;display:grid;place-items:center;border-radius:8px;border:1px solid var(--line)}
 .icon:focus-visible{outline:2px solid var(--gold)}
 .col{display:flex;flex-direction:column;gap:14px}
-.steps{display:flex;gap:6px}
-.steps i{flex:1;height:6px;border-radius:3px;background:var(--line)}
-.steps i.on{background:var(--gold)}.steps i.hit{background:var(--up)}.steps i.miss{background:var(--down)}.steps i.pass{background:var(--muted)}
+.steps{display:flex;gap:6px;align-items:center}
+.steps i{flex:1;height:6px;border-radius:3px;background:var(--line);font-style:normal;font-size:0;line-height:1;display:grid;place-items:center;box-sizing:border-box}
+/* 色だけで分けない：今の1本は太く・的中は塗り・はずれは斜線・見送りは点線の枠 */
+.steps i.on{background:var(--gold);height:10px}.steps i.hit{background:var(--up)}.steps i.miss{background:repeating-linear-gradient(135deg,var(--down) 0 3px,transparent 3px 6px);box-shadow:inset 0 0 0 1px var(--down)}.steps i.pass{background:none;border:1px dashed var(--muted)}
 .card{background:var(--paper);color:var(--ink);border-radius:8px;padding:14px 16px 10px;box-shadow:0 10px 0 #00000040;position:relative}
 .card.flip{animation:flip .45s ease-out;transform-origin:top center}
 @keyframes flip{from{transform:rotateX(-75deg);opacity:.2}to{transform:none;opacity:1}}
@@ -119,7 +120,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}.cal small{color:var(--muted);font-size:11px}
 .cal i{font-style:normal;font-size:12px;aspect-ratio:1;display:grid;place-items:center;border-radius:6px;background:var(--panel);position:relative;color:var(--muted)}
 .cal i:empty{background:none}.cal i.pu{background:#c93a30;color:#fff;font-weight:900}.cal i.pd{background:#2d68c4;color:#fff;font-weight:900}
-.cal i.today{outline:2px solid var(--gold)}.cal i b{position:absolute;right:-2px;top:-6px;font-size:10px}
+.cal i.today{outline:2px solid var(--gold)}.cal i[data-s]::after{content:attr(data-s);position:absolute;left:3px;bottom:1px;font-size:8px;line-height:1}.cal i b{position:absolute;right:-2px;top:-6px;font-size:10px}
 .dare{background:var(--panel);border:2px solid var(--gold);border-radius:10px;padding:12px;display:grid;gap:8px;text-align:center}.dare small{color:var(--muted)}
 .sec{font-size:12px;color:var(--muted);letter-spacing:.1em;font-weight:700;margin:0}
 .words{display:flex;flex-direction:column;gap:6px}
@@ -167,6 +168,8 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .qch button{text-align:left;font-size:14px;line-height:1.5;min-height:56px;padding:10px 14px}
 .qch button.right{border-color:var(--gold);background:#f4c04e26}
 .qch button.wrong{border-color:var(--down);opacity:.7}
+.qch button.right::before{content:"✓ 正しい：";font-weight:900;color:var(--gold)}.qch button.wrong::before{content:"✕ ちがう：";font-weight:900}
+.sr{position:absolute;left:-9999px;top:auto;width:1px;height:1px;white-space:nowrap;margin:0;padding:0;border:0}
 .rival{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;background:var(--panel);border-radius:10px;padding:8px 12px;font-size:13px;color:var(--muted)}
 .rival b{font-size:16px}.rival em{font-style:normal;font-weight:900;color:var(--gold)}
 .tmk{display:flex;flex-direction:column;gap:6px;background:var(--panel);border-radius:10px;padding:10px 12px}
@@ -191,9 +194,158 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .latelist button{min-height:48px}
 canvas#fx{position:fixed;inset:0;pointer-events:none;width:100%;height:100%;z-index:4}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* 色の見分けを助ける（見やすさの設定）：上げ・下げをカラーユニバーサルデザインの朱と空色に替え、記号を大きくする */
+html.a11y-cvd{--up:#ff7a3d;--down:#56b4e9}
+html.a11y-cvd svg.chart{--up:#d55e00;--down:#0072b2}
+html.a11y-cvd .buy{background:#b34700;box-shadow:0 5px 0 #7a3000}html.a11y-cvd .sell{background:#0068a8;box-shadow:0 5px 0 #004a78}
+html.a11y-cvd .cal i.pu{background:#b34700}html.a11y-cvd .cal i.pd{background:#0068a8}html.a11y-cvd .cal i[data-s]::after{font-size:10px}
+.steps i b{display:none}html.a11y-cvd .steps i b{display:block}
+html.a11y-cvd .steps i{height:16px;font-size:11px;font-weight:900;color:var(--stage)}html.a11y-cvd .steps i.miss{color:var(--paper)}html.a11y-cvd .steps i.pass{color:var(--paper)}
 /* キーで動かしたときの枠は、どのボタン・リンクでも消さない（いちばん最後に強く書く） */
 :is(.icon,button,a,summary):focus-visible{outline:2px solid var(--gold)!important;outline-offset:2px}
 </style>
+<!-- a11y:begin 見やすさの設定 v3（shared-workflows template/a11y/a11y.html の写し。ここでは直さず、ひな形を直して全部のゲームへ写す。drift-check と qa/a11y.mjs が同じ中身か見る） -->
+<style id="a11y-css">
+/* だれでも：キーボードで選んだ所に太い枠（WCAG 2.4.7・2.4.13） */
+:is(button,a,input,select,textarea,summary,[tabindex]):focus-visible{outline:3px solid #1a5fd0!important;outline-offset:2px!important;box-shadow:0 0 0 5px #fff!important}
+/* 読みやすい文字：UD フォント・行間 1.7・字間を少し広げる・斜体にしない（BDA Dyslexia Style Guide） */
+html.a11y-read body{line-height:1.7}
+html.a11y-read body,html.a11y-read body :where(*:not(svg):not(svg *):not([data-a11y-keepfont]):not([data-a11y-keepfont] *)){font-family:"BIZ UDPGothic","BIZ UDGothic","UD デジタル 教科書体 NK-R","UD Digi Kyokasho NK-R","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif!important;font-style:normal!important}
+html.a11y-read :is(p,li,dd,dt,blockquote,[data-a11y-say]){line-height:1.8!important;letter-spacing:.04em!important}
+html.a11y-read em,html.a11y-read i:not([aria-hidden]){font-style:normal!important;font-weight:700}
+/* 動きを減らす：揺れ・点滅・すべる動きを止める（WCAG 2.3.3。端末の「視差効果を減らす」でも自動で入る） */
+html.a11y-calm *,html.a11y-calm *::before,html.a11y-calm *::after{animation-duration:.001ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.001ms!important;transition-delay:0s!important;scroll-behavior:auto!important}
+/* 色の見分けを助ける：ゲームごとの形・模様は各ゲームが html.a11y-cvd の下に書く。ここではリンクに下線 */
+html.a11y-cvd a{text-decoration:underline!important}
+/* ふりがな：ゲームが <ruby class="a11y-rb"> を置いた所だけ。選んだときだけ出す */
+html:not(.a11y-ruby) ruby.a11y-rb>rt{display:none}
+/* 設定の画面（どのゲームでも同じ見た目・同じ濃さ。白地に黒で 15:1） */
+.a11y-dlg{max-width:min(420px,calc(100vw - 32px));width:100%;box-sizing:border-box;border:2px solid #1d2320;border-radius:14px;padding:18px 16px 14px;background:#fffdf8;color:#1d2320;font:500 16px/1.6 "BIZ UDPGothic","Hiragino Sans","Yu Gothic UI",Meiryo,sans-serif;letter-spacing:0}
+.a11y-dlg::backdrop{background:#0008}
+.a11y-dlg h2{font-size:19px;margin:0 0 4px;font-weight:700;line-height:1.4}
+.a11y-dlg p{margin:4px 0 10px;font-size:14px;color:#3d4440;line-height:1.6}
+.a11y-dlg label{display:flex;gap:12px;align-items:center;min-height:48px;padding:6px 4px;border-top:1px solid #1d232022;cursor:pointer;line-height:1.4}
+.a11y-dlg label small{display:block;font-size:13px;color:#3d4440}
+.a11y-dlg input[type=checkbox]{width:26px;height:26px;flex:none;accent-color:#1a5fd0;margin:0}
+.a11y-dlg .a11y-row{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.a11y-dlg button,.a11y-btn,.a11y-saybtn{min-height:44px;min-width:44px;border-radius:10px;border:2px solid #1d2320;background:#fff;color:#1d2320;font:700 15px/1.2 "BIZ UDPGothic","Hiragino Sans","Yu Gothic UI",Meiryo,sans-serif;padding:0 14px;cursor:pointer;letter-spacing:0}
+.a11y-dlg button.a11y-ok{background:#1d2320;color:#fff}
+.a11y-btn.a11y-float{position:fixed;left:max(8px,env(safe-area-inset-left,0px));bottom:max(8px,env(safe-area-inset-bottom,0px));z-index:2147483000}
+/* 読み上げボタンが、いちばん下のボタン・リンクにかぶらないよう下をあける */
+html.a11y-say body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))!important}
+.a11y-saybtn{position:fixed;right:max(8px,env(safe-area-inset-right,0px));bottom:max(8px,env(safe-area-inset-bottom,0px));z-index:2147483000;box-shadow:0 2px 8px #0003}
+.a11y-saybtn[hidden],.a11y-dlg [hidden]{display:none!important}
+.a11y-note{font-size:13px!important}
+</style>
+<script id="a11y-script">
+/* 見やすさの設定（色覚・ディスレクシア・弱視・動きに弱い人のため）。外へは何も送らない。
+   設定は localStorage の a11y-v1 に置く。同じサイト（satou-aaaaa.github.io）のゲームは同じ設定を使う。
+   ゲームの側でできること：
+   - 設定を開くボタンに data-a11y-open を付ける（無ければ左下に「Aa」のボタンを出す）
+   - 読み上げる文に data-a11y-say を付ける（問題文・知らせなど）
+   - 色の見分けを助ける形・模様は html.a11y-cvd の下に CSS で書く。JS では A11y.on('cvd')
+   - 揺れ・すべる動きを JS で動かすときは、A11y.on('calm') なら止める
+   - 設定が変わると document に a11ychange が届く
+   - 設定の印は html の class「a11y-<設定の名前>」（a11y-read など）。部品の class はこれと重ならない名前にする（2026-11-05 a11y-say がボタンとぶつかった） */
+(() => {
+  const KEY = "a11y-v1";
+  const root = document.documentElement;
+  const OPTS = [
+    ["read", "読みやすい文字", "UD フォント・行間と字間を広く"],
+    ["cvd", "色の見分けを助ける", "色に形・模様・記号を足す"],
+    ["calm", "動きを減らす", "揺れ・点滅・すべる動きを止める"],
+    ["say", "読み上げのボタンを出す", "問題や知らせを声で読む（端末の中の声だけ）"],
+    ["ruby", "ふりがなを出す", "むずかしい漢字に読みを付ける"],
+  ];
+  const media = (q) => { try { return matchMedia(q).matches; } catch { return false; } };
+  let S = {};
+  try { S = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch { S = {}; }
+  // 決めていないものは端末の設定に合わせる（視差効果を減らす → 動きを減らす）
+  const on = (k) => (k in S ? !!S[k] : k === "calm" ? media("(prefers-reduced-motion: reduce)") : false);
+  let fontLoaded = false;
+  const loadFont = () => {
+    if (fontLoaded) return; fontLoaded = true;
+    // Google Fonts を許しているページだけ取りに行く（許していなければ端末にある UD フォントを使う）
+    const csp = (document.querySelector('meta[http-equiv="Content-Security-Policy"]') || {}).content || "";
+    if (csp && !/fonts\.googleapis\.com/.test(csp)) return;
+    const l = document.createElement("link");
+    l.rel = "stylesheet"; l.href = "https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap";
+    document.head.appendChild(l);
+  };
+  const apply = () => {
+    for (const [k] of OPTS) root.classList.toggle("a11y-" + k, on(k));
+    if (on("read")) loadFont();
+    if (sayBtn) sayBtn.hidden = !on("say");
+    if (!on("say")) stop();
+  };
+  const set = (k, v) => {
+    S[k] = !!v;
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* 保存できなくても今の画面には効かせる */ }
+    apply();
+    document.dispatchEvent(new CustomEvent("a11ychange", { detail: { key: k, on: !!v } }));
+  };
+
+  // 読み上げ：端末の中の日本語の声だけを使う（外へ文字を送る声は使わない）
+  const voice = () => { try { return speechSynthesis.getVoices().find((v) => /^ja/i.test(v.lang) && v.localService) || null; } catch { return null; } };
+  const stop = () => { try { speechSynthesis.cancel(); } catch { /* 無い端末 */ } };
+  const visible = (el) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && !el.closest("[hidden],[aria-hidden=true],[inert]"); };
+  const sayText = () => [...document.querySelectorAll("[data-a11y-say]")].filter(visible).map((el) => (el.getAttribute("aria-label") || el.innerText || "").trim()).filter(Boolean).join("。");
+  const say = (text) => {
+    const v = voice();
+    if (!v || !text) return false;
+    stop();
+    const u = new SpeechSynthesisUtterance(text.slice(0, 600));
+    u.voice = v; u.lang = v.lang; u.rate = 0.95;
+    speechSynthesis.speak(u);
+    return true;
+  };
+
+  let dlg = null, sayBtn = null, lastFocus = null;
+  const build = () => {
+    dlg = document.createElement("dialog");
+    dlg.className = "a11y-dlg";
+    dlg.setAttribute("aria-labelledby", "a11y-h");
+    const hasRuby = !!document.querySelector("ruby.a11y-rb");
+    dlg.innerHTML = `<h2 id="a11y-h">見やすさ・読みやすさ</h2><p>ほかのゲームにも同じ設定が使われます。文字は2本の指で広げると大きくなります。</p>` +
+      OPTS.filter(([k]) => k !== "ruby" || hasRuby).map(([k, n, d]) => `<label><input type="checkbox" data-k="${k}"><span>${n}<small>${d}</small></span></label>`).join("") +
+      `<p class="a11y-note" id="a11y-novoice" hidden>この端末には、外へ送らずに読める日本語の声がありません。</p><div class="a11y-row"><button type="button" class="a11y-ok" data-a11y-close>閉じる</button></div>`;
+    document.body.appendChild(dlg);
+    dlg.addEventListener("change", (e) => {
+      const k = e.target.dataset && e.target.dataset.k;
+      if (!k) return;
+      set(k, e.target.checked);
+      if (k === "say") dlg.querySelector("#a11y-novoice").hidden = !(e.target.checked && !voice());
+    });
+    dlg.querySelector("[data-a11y-close]").addEventListener("click", () => dlg.close());
+    dlg.addEventListener("close", () => { if (lastFocus && lastFocus.focus) lastFocus.focus(); });
+    sayBtn = document.createElement("button");
+    sayBtn.type = "button"; sayBtn.className = "a11y-saybtn"; sayBtn.textContent = "🔊 読む"; sayBtn.setAttribute("aria-label", "画面の問題を読み上げる");
+    sayBtn.addEventListener("click", () => {
+      try { if (speechSynthesis.speaking) return stop(); } catch { /* 無い端末 */ }
+      if (!say(sayText())) open();
+    });
+    document.body.appendChild(sayBtn);
+    if (!document.querySelector("[data-a11y-open]")) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "a11y-btn a11y-float"; b.textContent = "Aa"; b.setAttribute("data-a11y-open", ""); b.setAttribute("aria-label", "見やすさの設定");
+      document.body.appendChild(b);
+    }
+    document.addEventListener("click", (e) => { const t = e.target.closest && e.target.closest("[data-a11y-open]"); if (t) { e.preventDefault(); open(); } });
+    apply();
+  };
+  const open = () => {
+    if (!dlg) build();
+    lastFocus = document.activeElement;
+    for (const c of dlg.querySelectorAll("input[data-k]")) c.checked = on(c.dataset.k);
+    dlg.querySelector("#a11y-novoice").hidden = !(on("say") && !voice());
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
+  };
+  apply();
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build); else build();
+  window.A11y = { on, set, open, say, stop };
+})();
+</script>
+<!-- a11y:end -->
 </head>
 <body>
 <div class="tape" aria-hidden="true"><span id="tape"></span></div>
@@ -203,8 +355,9 @@ canvas#fx{position:fixed;inset:0;pointer-events:none;width:100%;height:100%;z-in
   <main id="screen" class="col"></main>
   <p class="note">会社とニュースは架空です。本当のお金は使いません。</p>
 </div>
-<canvas id="fx"></canvas>
+<canvas id="fx" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" hidden></div>
+<p class="sr" id="sr" aria-live="polite"></p>
 <script src="data.js"></script>
 <script>
 const {COMPANIES,EVENTS,TERMS}=window.KABU_DATA;
@@ -338,17 +491,22 @@ function sndIcon(){$("snd").textContent=REC.sound?"🔊":"🔇";$("snd").setAttr
 
 // ---- 表示の道具 ----
 const $=id=>document.getElementById(id);
+// 動きを減らす：端末の「視差効果を減らす」か、見やすさの設定の「動きを減らす」
+const calm=()=>matchMedia("(prefers-reduced-motion: reduce)").matches||!!(window.A11y&&A11y.on("calm"));
+// 読み上げソフトへの知らせ（画面を作り直しても消えない場所に、文字で出す）
+function srSay(t){const el=$("sr");if(!el)return;el.textContent="";srSay.t=t;setTimeout(()=>{if(srSay.t===t)el.textContent=t},60)}
 const man=v=>(Math.round(v/1000)/10).toLocaleString("ja-JP",{maximumFractionDigits:1})+"万円";
 const sign=v=>v>=0?"+":"−";
 let G=null;
-function countUp(el,from,to,fmt,ms=700){if(matchMedia("(prefers-reduced-motion: reduce)").matches){el.textContent=fmt(to);return}
+function countUp(el,from,to,fmt,ms=700){if(calm()){el.textContent=fmt(to);return}
   const t0=performance.now();(function f(t){const k=Math.min(1,(t-t0)/ms),e=1-Math.pow(1-k,3);el.textContent=fmt(from+(to-from)*e);if(k<1)requestAnimationFrame(f)})(t0)}
 function setMoney(animFrom){const el=$("money");if(!G){el.innerHTML="";return}
   el.innerHTML=`<small>持ち金</small><span id="mv"></span>`;
   if(animFrom!=null)countUp($("mv"),animFrom,G.money,man);else $("mv").textContent=man(G.money)}
 function tape(){const r=rng(seedOf(jstDay()));const s=COMPANIES.map(c=>{const p=((r()*4+.2)*(r()<.5?-1:1)).toFixed(1);
   return `${c.n}<b class="${p>0?"u":"d"}">${p>0?"▲":"▼"}${Math.abs(p)}%</b>`}).join("");$("tape").innerHTML=s+s}
-function steps(){return `<div class="steps">${G.list.map((_,i)=>`<i class="${G.marks[i]?{"🎯":"hit","💥":"miss","😶":"pass"}[G.marks[i]]:i===G.t?"on":""}"></i>`).join("")}</div>`}
+function steps(){const c=m=>G.marks.filter(x=>x===m).length;
+  return `<div class="steps" role="img" aria-label="${G.list.length}本中${Math.min(G.t+1,G.list.length)}本目・的中${c("🎯")}・はずれ${c("💥")}・見送り${c("😶")}">${G.list.map((_,i)=>{const k=G.marks[i]?{"🎯":"hit","💥":"miss","😶":"pass"}[G.marks[i]]:i===G.t?"on":"";return `<i class="${k}">${k?`<b aria-hidden="true">${{hit:"✓",miss:"✕",pass:"−",on:"●"}[k]}</b>`:""}</i>`}).join("")}</div>`}
 function coHead(e,price){const c=COMPANIES[e.c];return `<div class="co"><span class="em" aria-hidden="true">${c.e}</span><h2><small>${c.s}</small>${c.n}</h2><div class="price"><span id="pv">${price.toLocaleString()}</span>円<small>いまの株価</small></div></div>`}
 function chart(hist,next){
   const all=next==null?hist:[...hist,next],lo=Math.min(...all)*.97,hi=Math.max(...all)*1.03,W=300,H=100,n=hist.length;
@@ -356,8 +514,8 @@ function chart(hist,next){
   const area=`<polygon points="0,${H} ${pts} ${x(n-1).toFixed(1)},${H}" fill="#211a1414"/>`;
   const grid=[.25,.5,.75].map(k=>`<line x1="0" x2="${W}" y1="${H*k}" y2="${H*k}" stroke="#211a1418" stroke-width="1"/>`).join("");
   let seg;
-  if(next!=null){const col=next>=hist[n-1]?"var(--up)":"var(--down)";
-    seg=`<line x1="${x(n-1)}" y1="${y(hist[n-1])}" x2="${x(n)}" y2="${y(next)}" stroke="${col}" stroke-width="4" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"><animate attributeName="stroke-dashoffset" from="1" to="0" dur=".7s" fill="freeze"/></line><circle cx="${x(n)}" cy="${y(next)}" r="5" fill="${col}"><animate attributeName="r" values="0;0;5" keyTimes="0;.9;1" dur=".75s"/></circle>`}
+  if(next!=null){const col=next>=hist[n-1]?"var(--up)":"var(--down)",still=calm();
+    seg=`<line x1="${x(n-1)}" y1="${y(hist[n-1])}" x2="${x(n)}" y2="${y(next)}" stroke="${col}" stroke-width="4" stroke-linecap="round"${still?"":` pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"`}>${still?"":`<animate attributeName="stroke-dashoffset" from="1" to="0" dur=".7s" fill="freeze"/>`}</line><circle cx="${x(n)}" cy="${y(next)}" r="5" fill="${col}">${still?"":`<animate attributeName="r" values="0;0;5" keyTimes="0;.9;1" dur=".75s"/>`}</circle>`}
   else seg=`<line x1="${x(n-1)}" x2="${x(n)}" y1="${y(hist[n-1])}" y2="${y(hist[n-1])}" stroke="#211a1460" stroke-width="2" stroke-dasharray="4 4"/><text x="${x(n)}" y="${y(hist[n-1])-8}" text-anchor="end" font-size="16" fill="#6b6157" font-weight="900">？</text>`;
   return `<svg class="chart" viewBox="-6 -10 ${W+12} ${H+16}" preserveAspectRatio="none" role="img" aria-label="株価の動き">${grid}${area}<polyline points="${pts}" fill="none" stroke="#211a14" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>${seg}</svg>`}
 
@@ -368,7 +526,7 @@ function home(){
   const maxAbs=Math.max(10,...week.map(w=>w.r?Math.abs(w.r.pct):0));
   const first=!REC.plays&&!REC.cur,st=streak();
   $("screen").innerHTML=`
-    ${first?`<p class="lead center">会社のニュースを見て<br>株が<span class="u">上がる</span>か<span class="d">下がる</span>かを決めよう。<br>今日の5本で<br>100万円をどこまで増やせる？</p>`:""}
+    ${first?`<p class="lead center" data-a11y-say>会社のニュースを見て<br>株が<span class="u">上がる</span>か<span class="d">下がる</span>かを決めよう。<br>今日の5本で<br>100万円をどこまで増やせる？</p>`:""}
     ${CHAL?`<div class="dare"><b>📨 挑戦状が届いています</b><small>同じ5本で勝負${CHAL.p!=null?`。相手は ${CHAL.p>=0?"+":""}${CHAL.p}%`:""}</small><button class="main" id="chal">挑戦を受ける</button></div>`:""}
     ${first?`<div class="intro" aria-label="遊び方"><div><i>📰</i>ニュースを<br>読む</div><div><i>⚖️</i>買う・売るを<br>決める</div><div><i>💰</i>当たれば<br>増える</div></div>`:""}
     ${today?`<div class="share">今日の結果\n${shown(today.text)}</div><p class="next">次の5本まで あと <b id="nextin">${untilNext()}</b></p>`:""}
@@ -387,7 +545,8 @@ function home(){
     <div class="stats"><div><b>${REC.plays}</b><small>遊んだ日</small></div><div><b>${streak()||"-"}</b><small>連続日数</small></div>
       <div><b>${acc}%</b><small>的中率</small></div><div><b>${REC.best?man(REC.best).replace("万円",""):"-"}</b><small>最高(万円)</small></div></div>
     <div class="week" aria-label="この7日の成績">${week.map(w=>`<div>${w.r?`<span class="${w.r.pct>=0?"u":"d"}">${sign(w.r.pct)}${Math.abs(w.r.pct)}</span><i style="height:${Math.abs(w.r.pct)/maxAbs*48+2}px;background:var(--${w.r.pct>=0?"up":"down"})"></i>`:`<i style="background:var(--line)"></i>`}${+w.d.slice(8)}日</div>`).join("")}</div>`}
-    <button class="ghost" id="how">遊び方と覚えた言葉</button>`;
+    <button class="ghost" id="how">遊び方と覚えた言葉</button>
+    <button class="ghost" data-a11y-open>見やすさの設定（文字・色・動き）</button>`;
   $("go").onclick=()=>start(!today);$("how").onclick=howto;
   if(today)bindShare(today.text);tick();
   if($("hard"))$("hard").onclick=()=>start("hard");if($("col"))$("col").onclick=collection;if($("calbtn"))$("calbtn").onclick=calScreen;if($("rev"))$("rev").onclick=()=>start("review");if($("surv"))$("surv").onclick=()=>start("surv");if($("chal"))$("chal").onclick=()=>start("chal");
@@ -422,7 +581,8 @@ function calendar(ym){const t=jstDay(),now=t.slice(0,7),first=FIRST.slice(0,7);y
   const cells=[...Array(w0)].map(()=>`<i></i>`);let played=0,late=0;
   for(let d=1;d<=n;d++){const k=`${ym}-${String(d).padStart(2,"0")}`,r=REC.days[k],l=!r&&REC.late[k],h=REC.hdays[k];if(r)played++;if(l)late++;
     const cls=r?(r.pct>=0?"pu":"pd"):l?(l.pct>=0?"lu":"ld"):can.has(k)?"can":"";
-    cells.push(`<i class="${cls}${k===t?" today":""}" data-d="${k}" title="${r?`${r.pct>=0?"+":""}${r.pct}%`:l?`あとから ${l.pct>=0?"+":""}${l.pct}%`:can.has(k)?"あとから遊べる":""}">${d}${h?"<b>⛰️</b>":""}</i>`)}
+    const sg=r?(r.pct>=0?"▲":"▼"):l?(l.pct>=0?"▲":"▼"):"";
+    cells.push(`<i class="${cls}${k===t?" today":""}" data-d="${k}"${sg?` data-s="${sg}"`:""} title="${r?`${r.pct>=0?"+":""}${r.pct}%`:l?`あとから ${l.pct>=0?"+":""}${l.pct}%`:can.has(k)?"あとから遊べる":""}">${d}${r||l?`<span class="sr">日 ${r?"":"あとから "}${(r||l).pct>=0?"プラス":"マイナス"}${Math.abs((r||l).pct)}%</span>`:can.has(k)?`<span class="sr">日 あとから遊べる</span>`:""}${h?"<b>⛰️</b>":""}</i>`)}
   const st=streak(),ld=lateDays();
   return `<div class="calnav"><button type="button" id="calprev" data-ym="${prev}" aria-label="前の月" ${ym>first?"":"disabled"}>‹</button>
     <b>${y}年${m}月<small>遊んだ日 ${played}日${late?`・あとから ${late}日`:""}${st&&ym===now?`・🔥 ${st}日連続`:""}</small></b>
@@ -451,6 +611,7 @@ function howto(){
     <p class="sec">覚えた言葉（${ws.length}/${Object.keys(TERMS).length}）</p>
     <div class="words">${ws.length?ws.map(k=>`<div class="term"><b>${TERMS[k][0]}</b>${TERMS[k][1]}</div>`).join(""):`<div class="term">遊ぶと、ニュースに出てきた株の言葉がここにたまります。</div>`}</div>
     ${ws.length>=5?`<button class="hardbtn" id="quiz">📝 覚えた言葉のテスト<small>5問・3つから選ぶ</small></button>`:`<p class="sub">言葉を5つ覚えると、言葉のテストができます</p>`}
+    <button class="ghost" data-a11y-open>見やすさの設定（文字・色・動き）</button>
     <button class="main" id="back">もどる</button>
     <p class="note"><a href="${fbUrl("","遊び方の画面から")}" target="_blank" rel="noopener" style="color:var(--gold)">感想・直してほしい所を送る</a>（GitHub）</p>
     <p class="note">気に入ったら <a href="https://ko-fi.com/satouaaaaa" target="_blank" rel="noopener" style="color:var(--gold)">Ko-fi で応援</a>（遊ぶのはずっと無料）</p></div>`;
@@ -467,7 +628,7 @@ function quiz(){
     document.querySelectorAll(".qch button").forEach(b=>b.onclick=()=>{const c=q.ch[+b.dataset.j],hit=c===q.k;if(hit)ok++;beep(hit?"hit":"miss");
       document.querySelectorAll(".qch button").forEach(x=>{x.disabled=true;if(q.ch[+x.dataset.j]===q.k)x.classList.add("right");else if(x===b)x.classList.add("wrong")});
       const n=document.createElement("button");n.className="main";n.id="qnext";n.textContent=i<4?"次の問題":"結果を見る";$("screen").firstElementChild.append(n);
-      n.onclick=()=>{i++;i<5?show():done()};n.focus({preventScroll:true})})};
+      srSay(hit?"正解":`ちがいます。正しいのは「${TERMS[q.k][1]}」`);n.onclick=()=>{i++;i<5?show():done()};n.focus({preventScroll:true})})};
   const done=()=>{sync();const before=new Set(achs().filter(a=>a.got).map(a=>a.id));REC.qbest=Math.max(REC.qbest||0,ok);
     const got=achs().filter(a=>a.got&&!before.has(a.id));for(const a of got)REC.ach[a.id]=jstDay();save(REC);
     $("screen").innerHTML=`<div class="col center"><div class="rank">言葉のテスト</div><div class="big ${ok>=3?"u":"d"}" id="qscore">${ok}/5</div>
@@ -501,17 +662,17 @@ function turn(){
   const e=G.list[G.t],now=e.hist.at(-1);setMoney();
   $("screen").innerHTML=`${G.surv?`<p class="sub chain">⛓️ ${G.hits}本連続中${REC.sbest?(G.hits>REC.sbest?"・自己ベスト更新中":`・自己ベストまで あと${REC.sbest-G.hits+1}本`):""}</p>`:steps()}
     <div class="card flip">${coHead(e,now)}${chart(e.hist)}</div>
-    <div class="news" aria-live="polite"><small>${G.surv?`連続的中チャレンジ ${G.t+1}本目`:`${G.review?"復習 ":G.late?`${md(G.day)}・あとから `:""}ニュース ${G.t+1}/${G.list.length}`}</small><span class="typed" id="nw"></span></div>
+    <div class="news" data-a11y-say><small>${G.surv?`連続的中チャレンジ ${G.t+1}本目`:`${G.review?"復習 ":G.late?`${md(G.day)}・あとから `:""}ニュース ${G.t+1}/${G.list.length}`}</small><span class="typed" id="nw"></span></div>
     <div class="acts">
-      <button class="buy" id="buy">買う<small>上がると思う</small></button><button class="sell" id="sell">売る<small>下がると思う</small></button>
+      <button class="buy" id="buy"><span aria-hidden="true">▲ </span>買う<small>上がると思う</small></button><button class="sell" id="sell"><span aria-hidden="true">▼ </span>売る<small>下がると思う</small></button>
       ${G.surv?"":`<button class="pass" id="pass">今回は見送る</button>`}</div>
     ${G.daily&&!G.hard&&!REC.plays&&G.t===0?`<p class="sub hint">上がると思えば「買う」、下がると思えば「売る」。迷ったら見送りでも大丈夫。</p>`:""}
     ${G.surv?`<p class="sub">見送りなし。外れたら終わり</p>`:G.hard?`<p class="sub">⛰️ 上級：いつも全力（持ち金ぜんぶで勝負）</p>`:`<label class="allin"><input type="checkbox" id="all" ${G.allIn?"checked":""}><span class="sw"></span><span><b>全力</b>（持ち金ぜんぶで勝負）</span></label>`}`;
-  typeText($("nw"),e.n);
+  typeText($("nw"),e.n);srSay(`${G.surv?`連続的中チャレンジ ${G.t+1}本目`:`ニュース ${G.t+1}/${G.list.length}`}。${COMPANIES[e.c].n}。${e.n}`);
   if($("all"))$("all").onchange=ev=>{G.allIn=ev.target.checked;beep("tap")};
   $("buy").onclick=()=>pick(1);$("sell").onclick=()=>pick(-1);if($("pass"))$("pass").onclick=()=>pick(0);
 }
-function typeText(el,s){if(matchMedia("(prefers-reduced-motion: reduce)").matches){el.textContent=s;return}
+function typeText(el,s){if(calm()){el.textContent=s;return}
   let i=0;el.textContent="";clearInterval(typeText.h);typeText.h=setInterval(()=>{el.textContent=s.slice(0,++i);if(i>=s.length)clearInterval(typeText.h)},28)}
 // 答える前に読み直し、別のタブが先に進めていたら保存済みの進み具合に合わせる（答えを食い違わせない）
 // 同じ日の今日の5本とあとからは、どちらか一方だけを記録する（0時をまたいだ別のタブで二重に数えない）
@@ -542,17 +703,18 @@ function pick(side){
   $("screen").innerHTML=`${G.surv?`<p class="sub chain">⛓️ ${G.hits}本連続${over?"で終わり":"中"}</p>`:steps()}
     <div class="card" id="card">${coHead(e,next)}${chart(e.hist,next)}</div>
     <div class="result">
-      <div class="big ${col}" id="pct">${e.p>=0?"▲":"▼"}0%</div>
-      <div class="why">${e.x?`<span class="twist">ひねり</span>`:""}${e.o}</div>
+      <div class="big ${col}" id="pct" data-a11y-say aria-label="${e.p>=0?"上がった":"下がった"} ${Math.abs(e.p)}%">${e.p>=0?"▲":"▼"}0%</div>
+      <div class="why" data-a11y-say>${e.x?`<span class="twist">ひねり</span>`:""}${e.o}</div>
       <div>${side===0?`<span class="stamp" style="color:var(--muted)">見送り</span>`:tw?`<span class="stamp tw">見抜いた！</span>`:hit?`<span class="stamp u">的中！</span>`:`<span class="stamp d">はずれ</span>`}</div>
       <div class="gain ${gain>=0?"u":"d"}">${side===0?"お金は動かず":sign(gain)+man(Math.abs(gain))}${G.allIn&&side?"（全力）":""}</div>
       ${combo>=2?`<p class="combo">🎯×${combo} 続けて的中</p>`:""}
       <div class="term"><b>${tn}</b>${td}</div>
     </div>
     <button class="main" id="next">${G.t+1<G.list.length&&!over?"次のニュース":"結果を見る"}</button>`;
+  srSay(`${side===0?"見送り":tw?"見抜いた！":hit?"的中！":"はずれ"}。${e.p>=0?"上がった":"下がった"} ${Math.abs(e.p)}%。${e.o}。${side===0?"お金は動かず":(gain>=0?"プラス":"マイナス")+man(Math.abs(gain))}。持ち金 ${man(G.money)}`);
   countUp($("pct"),0,Math.abs(e.p),v=>`${e.p>=0?"▲":"▼"}${Math.round(v)}%`,600);
   countUp($("pv"),now,next,v=>Math.round(v).toLocaleString(),600);
-  if(side&&REC.sound&&navigator.vibrate)try{navigator.vibrate(hit?25:[40,40,40])}catch{}
+  if(side&&REC.sound&&!calm()&&navigator.vibrate)try{navigator.vibrate(hit?25:[40,40,40])}catch{}
   if(side===0)beep("tap");else if(hit){beep("hit");if(G.surv&&G.hits%5===0){confetti();toast(`⛓️ ${G.hits}本連続！`)}else if(G.surv&&G.hits===(REC.sbest||0)+1&&REC.sbest){toast("自己ベスト更新中！")}else if(tw||Math.abs(e.p)>=12||G.allIn)confetti()}else{beep("miss");$("card").classList.add("shake")}
   G.t++;saveCur();
   $("next").onclick=()=>{G.t<G.list.length&&!over?turn():G.surv?survEnd():end()};$("next").focus({preventScroll:true});
@@ -580,10 +742,10 @@ function end(){
   const got=achs().filter(a=>a.got&&!before.has(a.id));for(const a of got)REC.ach[a.id]=day;save(REC);
   const st=streak();
   // ふり返り：どの会社のどんなニュースで、どう動いたか（共有の文には出さない）
-  const recap=old?"":G.list.map((e,i)=>`<div><span aria-hidden="true">${G.marks[i]||""}</span><span>${COMPANIES[e.c].n}${e.x?`<span class="twist" style="margin-left:6px">ひねり</span>`:""}<small>${e.n}</small></span><b class="${e.p>=0?"u":"d"}">${e.p>=0?"▲":"▼"}${Math.abs(e.p)}%</b></div>`).join("");
+  const recap=old?"":G.list.map((e,i)=>`<div><span aria-hidden="true">${G.marks[i]||""}</span><span><span class="sr">${{"🎯":"的中","💥":"はずれ","😶":"見送り"}[G.marks[i]]||""} </span>${COMPANIES[e.c].n}${e.x?`<span class="twist" style="margin-left:6px">ひねり</span>`:""}<small>${e.n}</small></span><b class="${e.p>=0?"u":"d"}">${e.p>=0?"▲":"▼"}${Math.abs(e.p)}%</b></div>`).join("");
   $("screen").innerHTML=`<div class="col center">
     <div class="rank">${rank}</div>
-    <div class="big ${pct>=0?"u":"d"}" id="tot" aria-live="polite">0%</div>
+    <div class="big ${pct>=0?"u":"d"}" id="tot" data-a11y-say aria-label="${pct>=0?"プラス":"マイナス"}${Math.abs(pct)}%">0%</div>
     ${!old&&G.mh&&G.mh.length>1?moneyLine(G.mh):""}
     ${G.daily&&st?`<div><span class="fire">🔥 ${st}日連続</span></div>`:""}
     ${!old&&(G.log||[]).some(l=>l.x)?(l=>`<div><span class="twsum">🔄 ひねりを見抜いた ${l.filter(x=>x.h).length}/${l.length}</span></div>`)(G.log.filter(l=>l.x)):""}
@@ -606,6 +768,7 @@ function end(){
     ${G.late&&lateDays().length?`<button class="ghost" id="morelate">📅 ほかの日もあとから（${lateDays().length}日）</button>`:""}
     <button class="ghost" id="again">練習でもう一回</button>
     <button class="ghost" id="tohome">記録を見る</button></div>`;
+  srSay(`結果。${rank}。100万円から${man(G.money)}、${pct>=0?"プラス":"マイナス"}${Math.abs(pct)}%`);
   countUp($("tot"),0,pct,v=>`${v>=0?"+":"−"}${Math.abs(Math.round(v))}%`,900);
   beep("end");if(pct>=20)confetti();
   bindShare(text);tick();$("again").onclick=()=>start(false);if($("morelate"))$("morelate").onclick=calScreen;
@@ -657,7 +820,7 @@ function copy(text){const ok=()=>toast("コピーしました");
 function fallback(text){const t=document.createElement("textarea");t.value=text;document.body.appendChild(t);t.select();let ok=false;try{ok=document.execCommand("copy")}catch{}t.remove();toast(ok?"コピーしました":"コピーできませんでした。結果の文を長押ししてね")}
 function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,1800)}
 function confetti(){
-  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  if(calm())return;
   const cv=$("fx"),x=cv.getContext("2d");cv.width=innerWidth;cv.height=innerHeight;
   const cols=["#f4c04e","#e5483d","#f6efe0","#3c7fe0"],P=Array.from({length:90},()=>({x:Math.random()*cv.width,y:-20-Math.random()*cv.height*.4,v:2+Math.random()*3,a:Math.random()*6,s:5+Math.random()*6,c:cols[Math.floor(Math.random()*4)]}));
   let f=0;cancelAnimationFrame(confetti.h);(function draw(){x.clearRect(0,0,cv.width,cv.height);for(const p of P){p.y+=p.v;p.a+=.1;x.fillStyle=p.c;x.save();x.translate(p.x+Math.sin(p.a)*8,p.y);x.rotate(p.a);x.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);x.restore()}if(++f<150)confetti.h=requestAnimationFrame(draw);else x.clearRect(0,0,cv.width,cv.height)})()}
