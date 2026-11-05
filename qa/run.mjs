@@ -200,6 +200,11 @@ try {
   await page.click("#go");
   { await page.waitForTimeout(900); const low = await contrastLow(page); check("問題の画面の文字（買う・売るの小さい文字も）は背景と十分な濃さの差がある", low.length === 0, low.join(" / ")); }
   check("初めての1問目に、買う・売るのヒントが1行出る", (await page.locator(".hint").count()) === 1);
+  // 色だけで分けない（shared-workflows routines/game-dev.md A1・WCAG 1.4.1）：買う・売るに▲▼、進み具合に記号と読み上げ用の説明
+  check("買う・売るは色のほかに▲▼でも分かる", /▲/.test(await page.textContent("#buy")) && /▼/.test(await page.textContent("#sell")));
+  check("進み具合（5本）は今の1本に●があり、読み上げ用の説明がある", (await page.textContent(".steps i.on")) === "●" && /5本中1本目・的中0・はずれ0・見送り0/.test(await page.getAttribute(".steps", "aria-label") || ""));
+  await page.waitForTimeout(200);
+  check("ニュースは読み上げソフトの知らせの場所（#sr）に会社と見出しが文字で出る（打ち出しの途中を1字ずつ読ませない）", /^ニュース 1\/5。.+。.+/.test(await page.textContent("#sr")) && (await page.locator(".news[aria-live]").count()) === 0, await page.textContent("#sr"));
   const list = await page.evaluate(() => { const s = (str) => { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
     const d = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); return window.__kabu.build(s(d)).map((e) => e.p); });
   const plan = [["buy", false], ["sell", false], ["pass", false], ["buy", true], ["sell", true]];
@@ -220,7 +225,11 @@ try {
     if (i === 0) {
       const term = await page.locator(".result .term b").textContent();
       check("結果の画面に「なぜ動いたか」と用語の説明が出る", (await page.locator(".why").textContent()).length > 3 && term.length > 1);
+      await page.waitForTimeout(200);
+      check("答え合わせ（的中・はずれ・値動き・持ち金）が知らせの場所（#sr）に文字で出る", /^(的中！|見抜いた！|はずれ)。(上がった|下がった) \d+%。.+持ち金 /.test(await page.textContent("#sr")), await page.textContent("#sr"));
     }
+    if (i === 2) { const st = await page.locator(".steps i").allTextContents(), ok = marks.every((m, k) => st[k] === { "🎯": "✓", "💥": "✕", "😶": "−" }[m]);
+      check("進み具合は的中✓・はずれ✕・見送り−の記号でも分かる（色だけにしない）", ok && (await page.locator(".steps i.miss,.steps i.hit,.steps i.pass").count()) === 3, st.join("")); }
     await page.click("#next");
   }
   const share = await page.textContent(".share");
@@ -239,6 +248,8 @@ try {
       for (const e of window.__kabu.build(s(d))) { const side = Math.sign(e.p) * (e.x ? -1 : 1); m += Math.round(m * .5 * side * e.p / 100); } return Math.round((m / 1e6 - 1) * 100); });
     check("ライバル「見出しどおり」の成績と勝ち負けが出る（見出しの印象どおりに半分ずつ張った計算と同じ）", rival.includes(`${exp >= 0 ? "+" : ""}${exp}%`) && /(あなたの勝ち|見出しどおりの勝ち|引き分け)/.test(rival), rival + " / " + exp); }
   check("終わりの画面に5本のふり返り（会社・値動き）が出る", (await page.locator(".recap div").count()) === 5);
+  check("ふり返りの的中・はずれは絵文字のほかに読み上げ用の言葉もある", (await page.locator(".recap .sr").allTextContents()).map((t) => t.trim()).join() === marks.map((m) => ({ "🎯": "的中", "💥": "はずれ", "😶": "見送り" })[m]).join());
+  check("結果が知らせの場所（#sr）に文字で出る", /^結果。.+(プラス|マイナス)\d+%$/.test(await page.textContent("#sr")), await page.textContent("#sr"));
   check("初めての今日の5本で、実績「はじめの一歩」を手に入れたと出る", /はじめの一歩/.test(await page.textContent(".newach")));
   check("今日の5本のあと、終わりの画面から上級に挑戦できる", (await page.locator("#hard").count()) === 1);
   { const x = decodeURIComponent((await page.getAttribute("#toX", "href")).split("text=")[1]), ln = decodeURIComponent((await page.getAttribute("#toLine", "href")).split("text=")[1]);
@@ -255,6 +266,8 @@ try {
   const bets = plan.filter(([a]) => a !== "pass").length, hits = marks.filter((m) => m === "🎯").length;
   check("記録：遊んだ日1・連続1日・的中率", st[0] === "1" && st[1] === "1" && st[2] === `${Math.round(hits / bets * 100)}%`, st.join(","));
   check("この7日のグラフに今日の分が出る", (await page.locator(".week span").count()) === 1);
+  { const c = await page.evaluate(() => { const d = document.createElement("div"); d.innerHTML = calendar(); const t = d.querySelector(".cal i.today"); return { s: t.dataset.s, sr: t.querySelector(".sr")?.textContent || "", pu: t.classList.contains("pu") || t.classList.contains("pd") }; });
+    check("カレンダーの遊んだ日は色のほかに▲▼と読み上げ用の言葉（プラス・マイナス）でも分かる", c.pu && /^[▲▼]$/.test(c.s || "") && /(プラス|マイナス)\d+%/.test(c.sr), JSON.stringify(c)); }
   check("遊んだあとのはじめの画面に、シェアと次の5本までの時間が出る", (await page.locator("#share").count()) === 1 && (await page.locator("#nextin").count()) === 1 && (await page.locator(".intro").count()) === 0);
   await page.click("#how");
   check("遊び方の画面に覚えた言葉がたまる", (await page.locator(".words .term b").count()) >= 1);
@@ -359,7 +372,9 @@ try {
   await page.click("#qagain");
   { const w = (await page.textContent(".qword")).trim(), right = Object.values(terms).find(([n]) => n === w)[1];
     await page.locator(".qch button").filter({ hasNotText: right }).first().click();
-    check("まちがえると、正しい説明に印が付く", (await page.locator(".qch button.right").count()) === 1 && (await page.locator(".qch button.wrong").count()) === 1); }
+    check("まちがえると、正しい説明に印が付く", (await page.locator(".qch button.right").count()) === 1 && (await page.locator(".qch button.wrong").count()) === 1);
+    { const m = await page.evaluate(() => [".qch button.right", ".qch button.wrong"].map((q) => getComputedStyle(document.querySelector(q), "::before").content));
+      check("言葉のテストの正しい・ちがうは色のほかに✓✕と言葉でも分かる", /✓ 正しい/.test(m[0]) && /✕ ちがう/.test(m[1]), m.join(" ")); } }
   // 飽きない仕組み：肩書き・今週のミッション・連続的中チャレンジ
   { const r = await page.evaluate(() => { const k = window.__kabu, seen = {}; let bad = 0, surv = 0;
       for (let i = 0; i < 2000; i++) { const key = new Date(Date.UTC(2026, 10, 2) + i * 7 * 864e5).toISOString().slice(0, 10);
@@ -573,6 +588,30 @@ try {
   check("QA の実行が途中で止まった", false, String(e.message || e).split("\n")[0]);
 } finally {
   await browser.close();
+}
+
+{ // 見やすさの設定「色の見分けを助ける」「動きを減らす」を入れたとき：上げ・下げの色が替わり、記号が大きくなり、打ち出し・線の動き・振動が止まる
+  const b2 = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
+  try {
+    const ctx = await b2.newContext({ viewport: { width: 390, height: 800 } });
+    await ctx.addInitScript(() => { localStorage.setItem("a11y-v1", JSON.stringify({ cvd: true, calm: true })); window.__vib = 0; navigator.vibrate = () => { window.__vib++; return true; }; });
+    const p = await ctx.newPage(); await p.goto(url); await p.waitForTimeout(300);
+    await p.click("#go"); await p.waitForTimeout(100);
+    const r = await p.evaluate(() => ({ up: getComputedStyle(document.documentElement).getPropertyValue("--up").trim(), down: getComputedStyle(document.documentElement).getPropertyValue("--down").trim(), news: document.getElementById("nw").textContent, full: window.__kabu.EVENTS.some((e) => e.n === document.getElementById("nw").textContent), h: document.querySelector(".steps i.on").getBoundingClientRect().height }));
+    check("色の見分けを助ける：上げ・下げが朱と空色（カラーユニバーサルデザイン）に替わり、進み具合の記号が見える大きさになる", r.up === "#ff7a3d" && r.down === "#56b4e9" && r.h >= 14, JSON.stringify(r));
+    check("動きを減らす：ニュースを1字ずつ打ち出さず、すぐ全部出す", r.full, r.news);
+    await p.evaluate(() => { REC.sound = true; }); await p.click("#buy"); await p.waitForTimeout(100);
+    const a = await p.evaluate(() => ({ anim: document.querySelectorAll("svg.chart animate").length, vib: window.__vib, pct: document.getElementById("pct").textContent }));
+    check("動きを減らす：値動きの線を動かさず、振動もしない・数字はすぐ出る", a.anim === 0 && a.vib === 0 && /^[▲▼][1-9]\d?%$/.test(a.pct), JSON.stringify(a));
+    await ctx.close();
+  } catch (e) { check("見やすさの設定を入れた検査が途中で止まった", false, String(e.message || e).split("\n")[0]); }
+  finally { await b2.close(); }
+}
+
+{ // 見やすさ・読みやすさ・偏り（shared-workflows template/qa/a11y.mjs の写し。routines/game-dev.md「だれでも遊べるように」）
+  const { spawnSync } = await import("node:child_process");
+  const a = spawnSync(process.execPath, [path.join(root, "qa", "a11y.mjs")], { encoding: "utf8", env: process.env });
+  check("見やすさ・読みやすさの検査（qa/a11y.mjs。中身は qa-report/a11y.md）", a.status === 0, (a.stdout.match(/^- ❌.*$/gm) || []).join(" / ") || (a.status ? a.stderr.slice(-300) : ""));
 }
 
 const failed = results.filter((r) => !r.ok);
