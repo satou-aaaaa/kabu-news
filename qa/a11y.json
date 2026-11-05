@@ -1,0 +1,9 @@
+{
+  "screens": [
+    { "name": "ニュース1本目", "click": ["#go"] },
+    { "name": "答え合わせ", "click": ["#go", "#buy"] },
+    { "name": "結果", "click": ["#go", "#buy", "#next", "#sell", "#next", "#buy", "#next", "#sell", "#next", "#pass", "#next"] },
+    { "name": "実績と図鑑", "click": ["#go", "#buy", "#next", "#sell", "#next", "#buy", "#next", "#sell", "#next", "#pass", "#next", "#tohome", "#col"] },
+    { "name": "遊び方", "click": ["#how"] }
+  ]
+}
