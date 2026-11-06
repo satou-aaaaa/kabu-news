@@ -348,6 +348,12 @@ try {
   { const c = await page.evaluate(() => { const d = new Date(Date.now() + 9 * 3600e3), n = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
       return { n, days: [...document.querySelectorAll(".cal i")].filter((i) => i.textContent.trim()).length, colored: document.querySelectorAll(".cal i.pu,.cal i.pd").length, today: document.querySelectorAll(".cal i.today").length, w: document.querySelector(".cal").scrollWidth <= document.querySelector(".cal").clientWidth }; });
     check("図鑑に今月のカレンダーがあり、遊んだ今日に色が付く（はみ出さない）", c.days === c.n && c.colored >= 1 && c.today === 1 && c.w, JSON.stringify(c)); }
+  // 上級の印（⛰️）が土曜の列にあっても枠からはみ出さない（2026-11-07 土曜に今日のマスの印がはみ出して QA が落ちた）
+  { const ok = await page.evaluate(() => { const ym = jstDay().slice(0, 7), keep = JSON.stringify(REC.hdays), cal = document.querySelector(".cal");
+      for (let d = 1; d <= 28; d++) REC.hdays[`${ym}-${String(d).padStart(2, "0")}`] = 1;
+      const box = document.createElement("div"); box.style.width = cal.getBoundingClientRect().width + "px"; box.innerHTML = calendar(ym); cal.parentNode.appendChild(box);
+      const c = box.querySelector(".cal"), r = c.scrollWidth <= c.clientWidth; box.remove(); REC.hdays = JSON.parse(keep); return r; });
+    check("どの曜日の列でも、上級の印がカレンダーの枠からはみ出さない", ok); }
   { const btn = page.locator(".cobtn").first(), co = +(await btn.getAttribute("data-co")), bh = await btn.evaluate((b) => b.getBoundingClientRect().height);
     await btn.click(); const heads = [];
     for (let i = 0; i < 5; i++) { await page.waitForFunction(() => document.querySelector("#nw")?.textContent.length > 3); await page.waitForTimeout(700);
