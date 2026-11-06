@@ -435,8 +435,7 @@ function lateDays(rec=REC,today=jstDay()){const out=[],t=Date.parse(today);
   for(let i=1;i<=7;i++){const d=new Date(t-i*864e5).toISOString().slice(0,10);if(d>=FIRST&&!rec.days[d]&&!(rec.late||{})[d])out.push(d)}return out}
 // ---- 肩書き：当てた本数（どの遊び方でも）で少しずつ上がる ----
 const TITLES=[[0,"🌱","見習い"],[10,"📰","駆け出し"],[30,"📊","中堅"],[60,"🎯","腕利き"],[100,"🏅","ベテラン"],[160,"👑","名人"],[250,"🌟","伝説の読み手"]];
-// 連続的中チャレンジは、今日の5本（か、あとから遊ぶ5本）を1回終えたら開く。前の決まり（肩書き「駆け出し」）で開いていた人はそのまま
-const survOpen=(r=REC)=>r.plays>0||Object.keys(r.late||{}).length>0||Object.keys(r.hdays||{}).length>0||r.xp>=TITLES[1][0];
+// 好きなだけ遊べる：連続的中チャレンジ・上級・練習は、はじめての日から遊べる（🔒で開く決まりは入れない。2026-11-06 satou さん）
 const survBtn=(id,lead,home=true)=>`<button class="main alt" id="${id}">⛓️ ${lead}<small>${home?"何本続けて当てられる？":"外れるまで何本続くか"}・何度でも${home&&REC.sbest?`・最高 ${REC.sbest}本`:""}</small></button>`;
 function title(xp=REC.xp){let i=TITLES.length-1;while(xp<TITLES[i][0])i--;return{i,e:TITLES[i][1],n:TITLES[i][2],next:TITLES[i+1]}}
 // ---- 今週のミッション：月曜に変わる3つ（だれでも同じ） ----
@@ -454,7 +453,7 @@ const MISSIONS=[
   ["rev3","📝","復習で3本当てる",3,c=>c.review?c.hits:0]];
 function pickMissions(key,open){const r=rng(seedOf(key+"w")),pool=MISSIONS.slice(),out=[];
   while(out.length<3){const m=pool.splice(Math.floor(r()*pool.length),1)[0];if(m[0]==="surv5"&&!open)continue;out.push(m)}return out}
-const missions=()=>pickMissions(weekKey(),survOpen());
+const missions=()=>pickMissions(weekKey(),true);
 function wk(){if(!REC.wk||REC.wk.k!==weekKey())REC.wk={k:weekKey(),v:{},co:{}};return REC.wk}
 // 遊び終えたら今週のミッションを進める。3つそろった週は🏅を1つ
 function countWeek(c){const w=wk();if(c.log)for(const l of c.log)if(l.h)w.co[l.c]=1;c.cos=Object.keys(w.co).length;
@@ -539,13 +538,13 @@ function home(){
     ${first?`<div class="intro" aria-label="遊び方"><div><i>📰</i>ニュースを<br>読む</div><div><i>⚖️</i>買う・売るを<br>決める</div><div><i>💰</i>当たれば<br>増える</div></div>`:""}
     ${today?`<div class="share">今日の結果\n${shown(today.text)}</div><p class="next">次の5本まで あと <b id="nextin">${untilNext()}</b></p>`:""}
     ${today?shareRow():""}
-    ${today&&survOpen()?survBtn("surv","連続的中チャレンジ"):""}
+    ${today?survBtn("surv","連続的中チャレンジ"):""}
     <button class="${today?"ghost":"main"}" id="go">${today?"練習でもう一回":REC.cur&&REC.cur.day===jstDay()?`今日の5本の続き（${REC.cur.t+1}本目から）`:`第${roundNo(jstDay())}回 今日の5本をはじめる`}</button>
     ${today?"":`<p class="sub">だれでも同じ5本・1日1回・3分${st?`　<span class="fire">🔥 ${st}日連続</span>`:""}</p>`}
-    ${!today&&survOpen()?survBtn("surv","連続的中チャレンジ"):""}
-    ${today?hardBox():first?"":`<p class="sub">🔒 上級の5本は、今日の5本のあとで</p>`}
+    ${!today?survBtn("surv","連続的中チャレンジ"):""}
+    ${hardBox()}
+    ${today?"":`<button class="ghost" id="prac">練習（何度でも）</button>`}
     ${first?"":titleBox()+weekBox()}
-    ${first||survOpen()?"":`<p class="sub">🔒 連続的中チャレンジは、今日の5本を1回終えると開く</p>`}
     ${first||!Object.keys(REC.miss).length?"":`<button class="ghost" id="rev">まちがえたニュースの復習（${Object.keys(REC.miss).length}本）</button>`}
     ${first?"":`<button class="ghost" id="col">実績と図鑑（${achs().filter(a=>a.got).length}/${ACH.length}）</button>`}
     ${first?"":(n=>`<button class="ghost" id="calbtn">📅 カレンダー${n?`・あとから遊べる日 ${n}日`:""}</button>`)(lateDays().length)}
@@ -558,7 +557,7 @@ function home(){
     <button class="ghost" type="button" data-hk>記録の引き継ぎ（別の端末へ）</button>`;
   $("go").onclick=()=>start(!today);$("how").onclick=howto;
   if(today)bindShare(today.text);tick();
-  if($("hard"))$("hard").onclick=()=>start("hard");if($("col"))$("col").onclick=collection;if($("calbtn"))$("calbtn").onclick=calScreen;if($("rev"))$("rev").onclick=()=>start("review");if($("surv"))$("surv").onclick=()=>start("surv");if($("chal"))$("chal").onclick=()=>start("chal");
+  if($("hard"))$("hard").onclick=()=>start("hard");if($("prac"))$("prac").onclick=()=>start(false);if($("col"))$("col").onclick=collection;if($("calbtn"))$("calbtn").onclick=calScreen;if($("rev"))$("rev").onclick=()=>start("review");if($("surv"))$("surv").onclick=()=>start("surv");if($("chal"))$("chal").onclick=()=>start("chal");
 }
 function hardBox(){const h=REC.hdays[jstDay()],c=REC.hcur&&REC.hcur.day===jstDay()?REC.hcur:null;
   if(h)return `<div class="hardbox"><b>上級の5本</b>　${h.marks}　<span class="${h.pct>=0?"u":"d"}">${h.pct>=0?"+":""}${h.pct}%</span></div>`;
@@ -612,9 +611,9 @@ function howto(){
     <p>2. 当たれば持ち金が増え、外れれば減ります。ふだんは持ち金の半分、<b>全力</b>にすると全部で勝負します。</p>
     <p>3. 自信がなければ見送れます。お金は動きません。</p>
     <p>4. 「今日の5本」はだれでも同じ問題で、1日1回。練習は何度でも遊べます。</p>
-    <p>5. 今日の5本を終えると<b>上級の5本</b>に挑戦できます。いつも全力で、見出しの印象と逆に動くニュースが多めです。</p>
+    <p>5. <b>上級の5本</b>（1日1回）は、いつも全力で、見出しの印象と逆に動くニュースが多めです。</p>
     <p>6. 結果の画面では、見出しの印象どおりに張った「見出しどおり」と比べられます。ひねったニュースを見抜けば勝てます。</p>
-    <p>7. 当てるほど<b>肩書き</b>が上がり、今日の5本を1回終えると<b>連続的中チャレンジ</b>（外れるまで続く・何度でも）が開きます。<b>今週のミッション</b>は毎週月曜に入れ替わります。</p>
+    <p>7. 当てるほど<b>肩書き</b>が上がります。<b>連続的中チャレンジ</b>は外れるまで続き、何度でもすぐやり直せます。<b>今週のミッション</b>は毎週月曜に入れ替わります。</p>
     <p>8. 練習のあとは<b>挑戦状</b>を出せます。リンクを開いた友だちが同じ5本で遊び、成績を比べられます。</p>
     <p>9. 遊べなかった日の今日の5本は、7日前まで<b>カレンダー</b>からあとから遊べます（連続の日には数えません）。</p>
     <p class="sec">覚えた言葉（${ws.length}/${Object.keys(TERMS).length}）</p>
@@ -656,14 +655,16 @@ function start(mode,co){
     beep("tap");G.t<TURNS?turn():end();return}
   const review=mode==="review",surv=mode==="surv",chal=mode==="chal"&&CHAL,daily=mode===true||mode==="hard",hard=mode==="hard",g={hard};
   sync();const day=jstDay(),cur=REC[ck(g)]&&REC[ck(g)].day===day?REC[ck(g)]:null;
-  if(daily&&REC[dk(g)][day]||hard&&!REC.days[day]){home();return}
+  if(daily&&REC[dk(g)][day]){home();return}
   // 続きは保存した5本をそのまま使う（途中で data.js が変わっても問題が入れ替わらない）
   if(daily&&cur){G={...cur,daily:true,hard,list:cur.list||build(cur.seed,hard)};beep("tap");G.t<TURNS?turn():end();return}
   const seed=hard?seedOf(day+"h"):daily?seedOf(day):Math.floor(Math.random()*2**31);
   // 日付は始めた日で固定（0時をまたいでも、始めた日の記録になる）
-  const list=mode==="co"?coList(co,seed):chal?chalList(CHAL):review?reviewList(seed):surv?survList(seed):build(seed,hard,daily?null:REC.seen);if(!list.length){home();return}
+  const list=mode==="co"?coList(co,seed):chal?chalList(CHAL):review?reviewList(seed):surv?survList(seed):build(seed,hard,daily?null:pracSeen());if(!list.length){home();return}
   G={daily,hard,review,surv,chal:chal?{p:CHAL.p}:null,day,seed,list,t:0,money:START,marks:[],allIn:hard,words:[],bets:0,hits:0,log:[]};beep("tap");turn();
 }
+// 練習：まだ読んでいないニュースを先に。全部読んだあとは、前の練習の5本を後ろに回す（続けて同じニュースにしない）
+function pracSeen(){return Object.keys(REC.seen).filter(n=>EVENTS.some(e=>e.n===n)).length<EVENTS.length?REC.seen:Object.fromEntries((REC.plast||[]).map(n=>[n,1]))}
 // 今日の5本は1本ずつ記録して、途中で閉じても続きから（やり直しで結果を変えられないように）
 function saveCur(){if(G.late){sync();if(REC.late[G.day]||REC.days[G.day])return;const c=REC.acur[G.day];if(c&&c.t>=G.t)return;REC.acur[G.day]={...G};save(REC);return}
   if(!G.daily)return;sync();if(REC[dk(G)][G.day])return;const c=REC[ck(G)];if(c&&(c.day>G.day||c.day===G.day&&c.t>=G.t))return;REC[ck(G)]={...G};save(REC)}
@@ -740,6 +741,7 @@ function end(){
   if(G.daily&&REC[ck(G)]&&REC[ck(G)].day===day)delete REC[ck(G)];
   // あとから：記録は late に分けて置く（今日の記録・遊んだ日・連続・最高記録・Ko-fi には数えない。図鑑・肩書き・実績の日数には入る）
   if(G.late){if(!old)REC.late[day]={pct,marks:G.marks.join(""),text};delete REC.acur[day];if(REC.cur&&REC.cur.day===day&&!REC.cur.hard)delete REC.cur}
+  if(!G.daily&&!G.late&&!G.review&&!G.chal&&G.list.length===TURNS)REC.plast=G.list.map(e=>e.n);
   const bk=G.hard?"hbest":"best";if(!old&&!G.review&&!G.late&&G.t>=TURNS&&G.money>REC[bk])REC[bk]=G.money;
   // 図鑑は練習も数える。腕前（ひねった問題・全力）は今日の5本と上級だけ
   if(!old)for(const l of G.log||[]){REC.seen[l.n]=1;if(l.s&&l.t&&!G.review){const m=REC.tm[l.t]||(REC.tm[l.t]=[0,0]);m[0]++;m[1]+=l.h}if(l.s&&!l.h)REC.miss[l.n]=1;else if(l.h)delete REC.miss[l.n];const c=REC.co[l.c]||(REC.co[l.c]=[0,0,0]);c[0]++;if(l.s){c[1]++;c[2]+=l.h}
@@ -838,7 +840,7 @@ addEventListener("keydown",ev=>{if(ev.target.tagName==="INPUT")return;const m={"
 $("snd").onclick=()=>{const on=!REC.sound;sync();REC.sound=on;save(REC);sndIcon();beep("tap")};
 $("home").onclick=()=>{clearInterval(typeText.h);home()};
 if("serviceWorker" in navigator&&location.protocol==="https:"&&/github\.io$/.test(location.hostname))navigator.serviceWorker.register("sw.js").catch(()=>{});
-window.__kabu={survOpen,build,lateDays,seedOf,playedDays,EVENTS,COMPANIES,TERMS,TURNS,pickMissions,MISSIONS,TITLES,weekKey};
+window.__kabu={pracSeen,build,lateDays,seedOf,playedDays,EVENTS,COMPANIES,TERMS,TURNS,pickMissions,MISSIONS,TITLES,weekKey};
 tape();sndIcon();home();
 </script>
 </body>

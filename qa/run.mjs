@@ -195,7 +195,19 @@ try {
   check("遊ぶ前の画面に Ko-fi のひとことが無い", (await page.locator(".kofi").count()) === 0);
   check("はじめの画面に「今日の5本をはじめる」", /今日の5本をはじめる/.test(await page.textContent("#go")));
   check("初めての人には、空の記録でなく遊び方の3つの絵が出る", (await page.locator(".intro div").count()) === 3 && (await page.locator(".stats").count()) === 0);
-  check("初めての人の画面には、連続的中チャレンジのボタンも鍵の文も出さない（今日の5本だけ）", (await page.locator("#surv").count()) === 0 && !/連続的中チャレンジ/.test(await page.textContent("#screen")));
+  // 好きなだけ遊べる（2026-11-06 satou さん「好きなだけ遊んでほしい」）：はじめての日から、連続的中チャレンジ・上級・練習を遊べる。🔒や「…すると開く」は出さない
+  check("初めての人の画面にも、連続的中チャレンジ・上級の5本・練習のボタンがある（鍵をかけない）", (await page.locator("#surv").count()) === 1 && (await page.locator("#hard").count()) === 1 && (await page.locator("#prac").count()) === 1);
+  check("はじめの画面に🔒・「…すると開く」「…のあとで」の鍵の文が無い", !/🔒|すると開く|終えると開く|のあとで/.test(await page.textContent("#screen")), await page.textContent("#screen"));
+  check("ページのどこにも🎫（回数の券）が無い", !/🎫|チケット/.test(html));
+  check("Ko-fi は結果の画面の1行と遊び方の画面の下だけ（ほかの画面・始める前に出さない）", (html.match(/ko-fi\.com\/satouaaaaa/g) || []).length === 2 && (await page.locator("a[href*='ko-fi']").count()) === 0);
+  { const c0 = await browser.newContext({ viewport: { width: 390, height: 800 } }), p0 = await c0.newPage(); await p0.goto(url);
+    await p0.click("#hard"); await p0.waitForTimeout(300);
+    check("初めての人でも、上級の5本をすぐ遊べる（今日の5本を待たない）", (await p0.locator("#all").count()) === 0 && /いつも全力/.test(await p0.textContent("#screen")) && /ニュース 1\/5/.test(await p0.textContent(".news small")));
+    await p0.click("#home"); await p0.click("#prac"); await p0.waitForTimeout(300);
+    check("初めての人でも、練習をすぐ遊べる", (await p0.locator("#all").count()) === 1 && /ニュース 1\/5/.test(await p0.textContent(".news small")));
+    await p0.click("#home"); await p0.click("#surv"); await p0.waitForTimeout(300);
+    check("初めての人でも、連続的中チャレンジをすぐ遊べる", /連続的中チャレンジ 1本目/.test(await p0.textContent(".news small")));
+    await c0.close(); }
   check("ボタンに今日が第何回かが出る（だれでも同じ回）", /^第\d+回 /.test((await page.textContent("#go")).trim()));
   { const small = await page.evaluate(() => [...document.querySelectorAll("button,a")].filter((b) => b.offsetParent && b.id !== "home").map((b) => { const r = b.getBoundingClientRect(); return [b.id || b.textContent.trim().slice(0, 8), r.width, r.height]; }).filter(([, w, h]) => w < 44 || h < 44));
     check("押す所はどれも44px以上（指で押しやすい）", small.length === 0, JSON.stringify(small)); }
@@ -217,7 +229,7 @@ try {
     if (i === 2) { // 途中で開き直しても続きから（やり直しで結果を変えられない）
       await page.reload();
       check("途中で開き直すと「続き（3本目から）」になる", /続き（3本目から）/.test(await page.textContent("#go")));
-      check("今日の5本を1回終えるまでは、連続的中チャレンジに鍵がかかっている（そう書いてある）", (await page.locator("#surv").count()) === 0 && /連続的中チャレンジは、今日の5本を1回終えると開く/.test(await page.textContent("#screen")));
+      check("今日の5本の途中でも、連続的中チャレンジと上級は鍵なしで出ている", (await page.locator("#surv").count()) === 1 && (await page.locator("#hard").count()) === 1 && !/🔒|すると開く/.test(await page.textContent("#screen")));
       await page.click("#go");
     }
     if (all) await page.check("#all", { force: true });
@@ -398,9 +410,22 @@ try {
   check("はじめの画面に肩書きと、次の肩書きまでの本数が出る", /見習い/.test(await page.textContent(".ttl")) && /あと1本当てる/.test(await page.textContent(".ttl")), await page.textContent(".ttl"));
   check("はじめの画面に今週のミッションが3つ、進み具合つきで出る", (await page.locator(".wkbox > div").count()) === 3 && (await page.locator(".wkbox .bar").count()) === 3);
   check("肩書きが「見習い」でも、今日の5本を終えていれば連続的中チャレンジは開いている", (await page.locator("#surv").count()) === 1 && !/🔒 連続的中/.test(await page.textContent("#screen")));
-  { const r = await page.evaluate(() => { const z = { plays: 0, late: {}, hdays: {}, xp: 0 };
-      return [{}, { plays: 1 }, { late: { "2026-11-01": { pct: 1 } } }, { xp: 10 }, { xp: 9 }].map((p) => window.__kabu.survOpen(Object.assign({}, z, p))); });
-    check("連続的中チャレンジが開くのは、今日の5本かあとからの5本を終えた人と、前の決まり（駆け出し）で開いていた人", JSON.stringify(r) === "[false,true,true,true,false]", JSON.stringify(r)); }
+  // 練習は何度でも：まだ読んでいないニュースを先に出し、全部読むまで同じニュースが出ない。全部読んだあとも前の回の5本を続けて出さない（400回×2）
+  { const r = await page.evaluate(() => { const k = window.__kabu, N = k.EVENTS.length, bad = [];
+      let firstRep = 1e9;
+      for (let run = 0; run < 200; run++) { const seen = {}; let got = 0;
+        for (let play = 0; play < 60; play++) { const l = k.build(Math.floor(Math.random() * 2 ** 31), false, seen);
+          if (l.some((e) => seen[e.n]) && got < N) { firstRep = Math.min(firstRep, play); if (play < N / 5 - 2) bad.push(`${run}:${play}`); break; }
+          for (const e of l) if (!seen[e.n]) { seen[e.n] = 1; got++; } } }
+      const saved = localStorage.getItem("kabu-news-v1"); let back = 0;
+      try { const rec = JSON.parse(saved); rec.seen = Object.fromEntries(k.EVENTS.map((e) => [e.n, 1]));
+        for (let i = 0; i < 400; i++) { rec.plast = k.build(i, false).map((e) => e.n); REC = Object.assign(fresh(), rec);
+          const l = k.build(Math.floor(Math.random() * 2 ** 31), false, k.pracSeen()); if (l.some((e) => rec.plast.includes(e.n))) back++; }
+      } finally { localStorage.setItem("kabu-news-v1", saved); REC = fresh(); }
+      return { bad: bad.slice(0, 5), N, plays: Math.floor(N / 5), back, firstRep }; });
+    // 終わりの2回ほどは、残りのニュースだけでは「会社を重ねない・上げ下げ両方」が組めず、読んだニュースが混ざることがある
+    check(`練習：200人×60回で、ほぼ全部のニュース（${r.N}本・${r.plays}回分の${r.plays - 2}回まで）を読むまで同じニュースが出ない`, r.bad.length === 0, `${r.bad.join(",")} 最初に重なった回 ${r.firstRep + 1}`);
+    check("練習：全部読んだあとも、前の練習の5本を続けて出さない（400回）", r.back === 0, String(r.back)); }
   const answer = async () => { const h = await page.textContent("#nw"), ev = await page.evaluate((h) => window.__kabu.EVENTS.find((e) => e.n === h), h); return ev.p > 0; };
   await page.click("#go"); // 練習
   for (let i = 0; i < 5; i++) { await page.waitForFunction(() => document.querySelector("#nw")?.textContent.length > 3); await page.waitForTimeout(700);
