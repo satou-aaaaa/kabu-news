@@ -64,7 +64,7 @@ h1 button{all:unset;cursor:pointer}
 @keyframes flip{from{transform:rotateX(-75deg);opacity:.2}to{transform:none;opacity:1}}
 .co{display:flex;align-items:center;gap:10px}
 .co .em{font-size:30px}
-.co h2{font-family:var(--f-disp);font-weight:400;font-size:24px;margin:0;line-height:1.15}
+.co h2{font-family:var(--f-disp);font-weight:400;font-size:24px;font-size:clamp(16px,calc((100vw - 200px)/var(--n,6)),24px);margin:0;line-height:1.15}
 .co h2 small{display:block;font-family:var(--f-body);font-size:11px;font-weight:700;color:var(--ink2);letter-spacing:.08em}
 .price{margin-left:auto;text-align:right;font-variant-numeric:tabular-nums;font-weight:900;font-size:19px;white-space:nowrap}
 .price small{display:block;font-size:11px;color:var(--ink2);font-weight:500}
@@ -81,6 +81,8 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .buy small,.sell small{display:block;font-size:11px;font-weight:700}
 .pass{grid-column:1/-1;background:transparent;border:1px solid var(--line);color:var(--muted);font-size:14px;padding:13px 10px}
 .main{background:var(--gold);color:var(--ink);box-shadow:0 5px 0 #a87d1e;width:100%}
+/* 答えたあとの「次のニュース」は、説明が長くても画面の下に見えたまま（2026-11-07 幅320で隠れていた） */
+#next{position:sticky;bottom:14px;z-index:5}
 .main.alt{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:15px;background:#f4c04e1f;color:var(--gold);border:2px solid var(--gold);box-shadow:0 5px 0 #a87d1e88}
 .main.alt small{font-size:12px;color:var(--muted);font-weight:700}
 .ghost{background:transparent;border:1px solid var(--line);color:var(--paper);width:100%;font-size:14px;padding:12px}
@@ -184,7 +186,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .calnav{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .calnav button{min-width:44px;min-height:44px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--paper);font:inherit;font-size:18px;cursor:pointer}
 .calnav button:disabled{visibility:hidden}
-.calnav b{font-size:14px}.calnav small{display:block;color:var(--muted);font-size:11px;font-weight:500}
+.calnav b{font-size:14px;flex:1;text-align:center}.calnav small{display:block;color:var(--muted);font-size:11px;font-weight:500}
 .cal i.lu{box-shadow:inset 0 0 0 2px var(--up);color:var(--paper);font-weight:900}.cal i.ld{box-shadow:inset 0 0 0 2px var(--down);color:var(--paper);font-weight:900}
 .cal i.can{box-shadow:inset 0 0 0 1px var(--gold);border:1px dashed var(--gold);box-sizing:border-box;color:var(--gold)}
 .callegend{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:center;font-size:11px;color:var(--muted)}
@@ -514,7 +516,7 @@ function tape(){const r=rng(seedOf(jstDay()));const s=COMPANIES.map(c=>{const p=
   return `${c.n}<b class="${p>0?"u":"d"}">${p>0?"▲":"▼"}${Math.abs(p)}%</b>`}).join("");$("tape").innerHTML=s+s}
 function steps(){const c=m=>G.marks.filter(x=>x===m).length;
   return `<div class="steps" role="img" aria-label="${G.list.length}本中${Math.min(G.t+1,G.list.length)}本目・的中${c("🎯")}・はずれ${c("💥")}・見送り${c("😶")}">${G.list.map((_,i)=>{const k=G.marks[i]?{"🎯":"hit","💥":"miss","😶":"pass"}[G.marks[i]]:i===G.t?"on":"";return `<i class="${k}">${k?`<b aria-hidden="true">${{hit:"✓",miss:"✕",pass:"−",on:"●"}[k]}</b>`:""}</i>`}).join("")}</div>`}
-function coHead(e,price){const c=COMPANIES[e.c];return `<div class="co"><span class="em" aria-hidden="true">${c.e}</span><h2><small>${c.s}</small>${c.n}</h2><div class="price"><span id="pv">${price.toLocaleString()}</span>円<small>いまの株価</small></div></div>`}
+function coHead(e,price){const c=COMPANIES[e.c];return `<div class="co"><span class="em" aria-hidden="true">${c.e}</span><h2 style="--n:${[...c.n].length}"><small>${c.s}</small>${c.n}</h2><div class="price"><span id="pv">${price.toLocaleString()}</span>円<small>いまの株価</small></div></div>`}
 function chart(hist,next){
   const all=next==null?hist:[...hist,next],lo=Math.min(...all)*.97,hi=Math.max(...all)*1.03,W=300,H=100,n=hist.length;
   const x=i=>i*(W/n),y=v=>H-(v-lo)/(hi-lo)*H,pts=hist.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
@@ -763,13 +765,13 @@ function end(){
     ${!old&&G.list.length===TURNS?(()=>{const rm=rivalMoney(G.list),rp=Math.round((rm/START-1)*100),win=G.money>rm,tie=G.money===rm;
       return `<div class="rival"><span>見出しどおりに張ると</span><b class="${rp>=0?"u":"d"}">${rp>=0?"+":""}${rp}%</b><em>${tie?"引き分け":win?"あなたの勝ち":"見出しどおりの勝ち"}</em></div>`})():""}
     ${G.chal&&G.chal.p!=null?`<div class="rival"><span>挑戦状の相手は</span><b class="${G.chal.p>=0?"u":"d"}">${G.chal.p>=0?"+":""}${G.chal.p}%</b><em>${pct>G.chal.p?"あなたの勝ち":pct<G.chal.p?"相手の勝ち":"引き分け"}</em></div>`:""}
-    <div class="share">${shown(text)}</div>
     ${shareRow()}
+    ${G.daily&&!G.hard&&!REC.hdays[day]?`<button class="hardbtn" id="hard">⛰️ 上級の5本に挑戦<small>いつも全力・ひねった問題が多め</small></button>`:""}
+    ${(G.daily||G.late)&&!old?survBtn("surv",`続けて遊ぶ：連続的中チャレンジ${REC.sbest?`（最高 ${REC.sbest}本）`:""}`,false):""}
+    <div class="share">${shown(text)}</div>
     ${!G.daily&&!G.review&&!G.late&&G.list.length===TURNS?`<button class="hardbtn" id="dare">📨 この5本で挑戦状を出す<small>友だちが同じ5本で遊べるリンク（答えは出ない）</small></button>`:""}
     ${got.length?`<div class="newach" role="status">${got.map(a=>`<div><i>${a.e}</i><span><small>実績を手に入れた</small><b>${a.n}</b></span></div>`).join("")}</div>`:""}
     ${growRow(tUp,wDone)}
-    ${G.daily&&!G.hard&&!REC.hdays[day]?`<button class="hardbtn" id="hard">⛰️ 上級の5本に挑戦<small>いつも全力・ひねった問題が多め</small></button>`:""}
-    ${(G.daily||G.late)&&!old?survBtn("surv",`続けて遊ぶ：連続的中チャレンジ${REC.sbest?`（最高 ${REC.sbest}本）`:""}`,false):""}
     ${G.daily?`<p class="next">次の5本まで あと <b id="nextin">${untilNext()}</b></p>`:""}
     ${recap?`<p class="sec">ふり返り</p><div class="recap">${recap}</div>`:""}
     <p class="sec">今日出てきた言葉${newWords.length?`（新しく${newWords.length}つ）`:""}</p>
@@ -840,7 +842,7 @@ addEventListener("keydown",ev=>{if(ev.target.tagName==="INPUT")return;const m={"
 $("snd").onclick=()=>{const on=!REC.sound;sync();REC.sound=on;save(REC);sndIcon();beep("tap")};
 $("home").onclick=()=>{clearInterval(typeText.h);home()};
 if("serviceWorker" in navigator&&location.protocol==="https:"&&/github\.io$/.test(location.hostname))navigator.serviceWorker.register("sw.js").catch(()=>{});
-window.__kabu={pracSeen,build,lateDays,seedOf,playedDays,EVENTS,COMPANIES,TERMS,TURNS,pickMissions,MISSIONS,TITLES,weekKey};
+window.__kabu={coHead,pracSeen,build,lateDays,seedOf,playedDays,EVENTS,COMPANIES,TERMS,TURNS,pickMissions,MISSIONS,TITLES,weekKey};
 tape();sndIcon();home();
 </script>
 </body>
