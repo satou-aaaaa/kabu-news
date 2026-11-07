@@ -52,6 +52,7 @@ check("外から読むのは文字（Google Fonts）だけ。スクリプト・�
   check("感想フォームの name が3字以上（「感想」の2字だと GitHub がフォームを出さず白紙の Issue になる。shared-workflows incidents/2026-11-05-feedback-form-not-shown.md）", [...((fy.match(/^name:\s*(.+)$/m) || [])[1] || "").trim()].length >= 3 && /^description:\s*\S/m.test(fy), (fy.match(/^name:.*$/m) || [""])[0]);
   check("感想フォームは名前・メールを聞かない（楽しさ・よかった所・直してほしい所だけ）", /id: fun/.test(fy) && /id: good/.test(fy) && /id: wish/.test(fy) && !/id: (name|email|mail)/.test(fy)); }
 check("CSP で通信先を自分だけにしている", /connect-src 'self'/.test(html) && !/connect-src[^;"]*https/.test(html));
+check("次へのボタン（#next）は iPhone のホームバーにかからない（bottom に safe-area-inset-bottom。CodeRabbit）", /#next\{[^}]*bottom:calc\([^}]*env\(safe-area-inset-bottom/.test(html), (html.match(/#next\{[^}]*\}/) || [""])[0]);
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 check("文字（Google Fonts）は画面を止めずに後から読む（media=print と onload）", /<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com[^"]+" media="print" onload="this\.media='all'">/.test(html));
