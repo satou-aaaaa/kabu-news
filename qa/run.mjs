@@ -65,6 +65,36 @@ const contrastLow = (page) => page.evaluate(() => {
     const a = lum(fgm), b = lum(bg), r = (Math.max(a, b) + .05) / (Math.min(a, b) + .05), big = parseFloat(cs.fontSize) >= 18.66 || (parseFloat(cs.fontSize) >= 14 && +cs.fontWeight >= 700);
     if (r < (big ? 3 : 4.5)) out.push(`${t.slice(0, 12)}:${r.toFixed(2)}`); } return out; });
 const isNoise = (t) => /fonts\.(googleapis|gstatic)\.com|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|net::ERR_/.test(t);
+// 6. スマホの使いやすさ（2026-11-07）：会社名を1行に・「次のニュース」がいつも見える・結果の画面で「もう1回」がすぐ見える・カレンダーの月を真ん中に
+async function uxChecks() {
+  for (const [w, h] of [[390, 844], [320, 640]]) {
+    const ctx = await browser.newContext({ viewport: { width: w, height: h } }), p = await ctx.newPage();
+    await p.goto(url);
+    { const r = await p.evaluate(() => { const k = window.__kabu, box = document.getElementById("screen"), keep = box.innerHTML, bad = [];
+        for (const c of k.COMPANIES) { const e = { c: k.COMPANIES.indexOf(c) }; box.innerHTML = `<div class="card">${k.coHead(e, 9999)}</div>`;
+          const h2 = box.querySelector(".co h2"), co = box.querySelector(".co"), nm = h2.lastChild;
+          const rg = document.createRange(); rg.selectNodeContents(nm); const lines = new Set([...rg.getClientRects()].map((x) => Math.round(x.top))).size;
+          if (lines !== 1 || co.scrollWidth > co.clientWidth + 1 || parseFloat(getComputedStyle(h2).fontSize) < 16) bad.push(`${c.n}:${lines}行`); }
+        box.innerHTML = keep; return bad; });
+      check(`幅${w}：どの会社名も1行に収まり、はみ出さない（16px以上）`, r.length === 0, r.join(",")); }
+    await p.goto(url); // 画面を書き換えたので開き直す（ボタンの働きを戻す）
+    await p.click("#go");
+    for (let i = 0; i < 5; i++) {
+      await p.click(i % 2 ? "#sell" : "#buy");
+      const r = await p.evaluate(() => { const b = document.getElementById("next").getBoundingClientRect(); return { bottom: Math.round(b.bottom), top: Math.round(b.top), over: document.documentElement.scrollWidth > innerWidth, stamp: !!document.querySelector(".result .stamp") }; });
+      check(`幅${w}×${h}：答えたあと${i + 1}本目、「的中／はずれ」の判と「次のニュース」が最初の画面に見える・横にはみ出さない`, r.stamp && r.top >= 0 && r.bottom <= h && !r.over, JSON.stringify(r));
+      await p.click("#next");
+    }
+    const r = await p.evaluate(() => { const at = (id) => { const e = document.getElementById(id); return e ? Math.round(e.getBoundingClientRect().bottom) : -1; }, sh = document.querySelector(".share");
+      return { share: at("share"), hard: at("hard"), surv: at("surv"), after: !!(sh && document.getElementById("surv").compareDocumentPosition(sh) & Node.DOCUMENT_POSITION_FOLLOWING), over: document.documentElement.scrollWidth > innerWidth }; });
+    if (w === 390) check("幅390×844：結果の画面で、シェア・上級・「続けて遊ぶ」が最初の画面に見える（共有の文はその下）", r.share > 0 && r.hard > 0 && r.surv > 0 && r.surv <= h && r.after && !r.over, JSON.stringify(r));
+    else check(`幅${w}：結果の画面で「シェア」が最初の画面に見え、横にはみ出さない`, r.share > 0 && r.share <= h && !r.over, JSON.stringify(r));
+    await p.click("#tohome"); await p.click("#calbtn");
+    { const c = await p.evaluate(() => { const b = document.querySelector(".calnav b").getBoundingClientRect(), n = document.querySelector(".calnav").getBoundingClientRect(); return Math.abs((b.left + b.right) / 2 - (n.left + n.right) / 2); });
+      check(`幅${w}：カレンダーの「年月」は真ん中に出る（前の月のボタンが無い月でもずれない）`, c <= 2, `ずれ ${c.toFixed(1)}px`); }
+    await ctx.close();
+  }
+}
 async function lateChecks() {
   const todayAt = process.env.QA_LATE_TODAY || "2026-12-02T03:00:00Z", K = "kabu-news-v1";
   const dayOf = (off) => new Date(Date.parse(todayAt) + 9 * 3600e3 - off * 864e5).toISOString().slice(0, 10);
@@ -506,6 +536,7 @@ try {
 
   // 5c. あとから遊ぶ（取りこぼした日）。今日はふだん 12/2（月をまたぐ）。QA_LATE_TODAY で別の日にも変えられる
   await lateChecks();
+  await uxChecks();
 
   const ctxTab = await browser.newContext({ viewport: { width: 390, height: 800 } });
   const ta = await ctxTab.newPage(), tb = await ctxTab.newPage();
