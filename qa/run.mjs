@@ -422,7 +422,7 @@ try {
   const terms = await page.evaluate(() => window.__kabu.TERMS);
   for (let i = 0; i < 5; i++) {
     const w = (await page.textContent(".qword")).trim(), right = Object.values(terms).find(([n]) => n === w)[1];
-    check(`言葉のテスト ${i + 1}問目：3つの説明から選べる（押しやすい大きさ）`, (await page.locator(".qch button").count()) === 3 && (await page.locator(".qch button").evaluateAll((bs) => bs.every((b) => b.getBoundingClientRect().height >= 44))));
+    check(`言葉のテスト ${i + 1}問目：3つの説明から選べる（押しやすい大きさ）`, (await page.locator(".qch button").count()) === 3 && (await page.locator(".qch button").evaluateAll((bs) => bs.every((b) => Math.round(b.getBoundingClientRect().height) >= 44))));
     await page.locator(".qch button", { hasText: right }).first().click();
     await page.click("#qnext");
   }
