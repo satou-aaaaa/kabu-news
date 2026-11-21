@@ -10,7 +10,7 @@
 //      長い受信でも保存し直しが終わるまで waitUntil で待つ
 // game:begin
 const CACHE = "kabu-v8";
-const SHELL = ["./", "./index.html", "./data.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./transfer.js"];
+const SHELL = ["./", "./index.html", "./data.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./transfer.js", "./transfer-qr.js"];
 // game:end
 
 // 同じゲームの古い版（<名前>-v<数字>）だけを消す。同じサイトのほかのゲーム（kotowaza- と kotowaza-bamen- など）の保存には触らない
