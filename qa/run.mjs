@@ -7,6 +7,7 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { checkTransfer } from "./transfer-check.mjs";
+import { checkSwStall } from "./sw-check.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const url = "file://" + path.join(root, "index.html");
@@ -665,6 +666,22 @@ try {
   try { // 引き継ぎコード（別の端末へ記録を移す。shared-workflows template/qa/transfer-check.mjs）
     await checkTransfer({ browser, url, game: "kabu-news", sample: { "kabu-news-v1": JSON.stringify({ xp: 3 }) }, check });
   } catch (e) { check("引き継ぎコード", false, e.message.split("\n")[0]); }
+{ // スマホの「戻る」：ホームから別の画面を開いて戻ると、ゲームから出ずにホームへ（Core.screens.mark・route。shared-workflows routines/ui-rules.md「ページの分け方」6）
+  const pb = await browser.newPage(); const eb = []; pb.on("pageerror", (e) => eb.push(e.message));
+  try {
+    await pb.goto(url); await pb.waitForSelector("#go");
+    const r = {};
+    await pb.click("#how"); r.how = new URL(pb.url()).hash;
+    await pb.goBack(); await pb.waitForSelector("#go", { timeout: 3000 });
+    r.back1 = pb.url(); r.home1 = await pb.locator("#go").isVisible();
+    await pb.click("#go"); await pb.waitForSelector(".news"); r.play = new URL(pb.url()).hash;
+    await pb.goBack(); await pb.waitForSelector("#go", { timeout: 3000 });
+    r.back2 = pb.url(); r.home2 = await pb.locator("#go").isVisible() && (await pb.locator(".news").count()) === 0;
+    check("スマホの「戻る」：遊び方・遊ぶ画面から戻ると、ゲームのページのままホームに戻る", r.how === "#howto" && r.play === "#play" && r.back1 === url && r.back2 === url && r.home1 && r.home2 && eb.length === 0, JSON.stringify(r) + eb.join(" / "));
+  } catch (e) { check("スマホの「戻る」でホームへ戻る", false, String(e.message || e).split("\n")[0]); }
+  await pb.close(); }
+{ const st = await checkSwStall(readFileSync(path.join(root, "sw.js"), "utf8"));
+  check("PWA：本文の途中で通信が止まっても、4秒で保存した画面を返す（shared-workflows template/qa/sw-check.mjs）", st.ok, JSON.stringify(st)); }
 { // 知らせ（.toast）は下のボタンを塞がない（shared-workflows incidents/2026-11-17-known-game-bugs-spread.md）
   const pt = await browser.newPage(); await pt.goto(url);
   check("知らせ（.toast）が出ていても、その下のボタンを押せる（pointer-events:none）", await pt.evaluate(() => { const d = document.createElement("div"); d.className = "toast"; document.body.appendChild(d); const v = getComputedStyle(d).pointerEvents; d.remove(); return v === "none"; }));
