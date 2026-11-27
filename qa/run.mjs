@@ -43,7 +43,9 @@ const silly = /お笑い|ギャグ|ボケ|ツッコミ|スベ|ウケ|なんで�
 const sillyHit = [...COMPANIES.map((c) => c.n), ...EVENTS.flatMap((e) => [e.n, e.o])].filter((t) => silly.test(t));
 check("会社名・ニュースにお笑いの言葉を入れない（本物っぽく）", sillyHit.length === 0, sillyHit.join(","));
 const html = readFileSync(path.join(root, "index.html"), "utf8");
-const ext = [...html.matchAll(/(?:src|href)="(https?:[^"]+)"/g)].map((m) => m[1]).filter((u) => !/^https:\/\/fonts\.googleapis\.com(\/|$)|^https:\/\/fonts\.gstatic\.com$|^https:\/\/ko-fi\.com\/satouaaaaa$|^https:\/\/twitter\.com\/intent\/tweet\?text=$|^https:\/\/line\.me\/R\/share\?text=$/.test(u));
+// ひな形の写し（<!-- 名前:begin〜end -->）はゲームの言葉ではないので外し、Core.kofi・Core.KOFI は写す前の形にもどして見る（shared-workflows の sync-template が足した）
+const gameOwn = (t) => t.replace(/<!-- ([a-z0-9-]+):begin[\s\S]*?<!-- \1:end -->/g, "").split("${Core.KOFI}").join("https://ko-fi.com/satouaaaaa").replace(/Core\.kofi\(("(?:[^"\\]|\\.)*"), ("(?:[^"\\]|\\.)*")\)/g, (m, a, b) => "`<p class=\"note kofi\">" + JSON.parse(a) + "、<a href=\"https://ko-fi.com/satouaaaaa\" target=\"_blank\" rel=\"noopener\">Ko-fi でコーヒー1杯の応援</a>をもらえると、" + JSON.parse(b) + "の励みになります（任意・遊ぶのはずっと無料）。</p>`");
+const ext = [...html.matchAll(/(?:src|href)="(https?:[^"]+)"/g)].map((m) => m[1]).filter((u) => !/^https:\/\/fonts\.googleapis\.com(\/|$)|^https:\/\/fonts\.gstatic\.com$|^https:\/\/ko-fi\.com\/satouaaaaa$|^https:\/\/(?:x|twitter)\.com\/intent\/tweet\?text=$|^https:\/\/line\.me\/R\/share\?text=$/.test(u));
 // X・LINE は押したときに開く投稿画面へのリンクで、読み込みはしない
 check("外から読むのは文字（Google Fonts）だけ。スクリプト・広告・解析を入れない", ext.length === 0, ext.join(","));
 { const og = (k) => (html.match(new RegExp(`<meta (?:property|name)="${k}" content="([^"]+)"`)) || [])[1] || "";
@@ -230,8 +232,8 @@ try {
   // 好きなだけ遊べる（2026-11-06 satou さん「好きなだけ遊んでほしい」）：はじめての日から、連続的中チャレンジ・上級・練習を遊べる。🔒や「…すると開く」は出さない
   check("初めての人の画面にも、連続的中チャレンジ・上級の5本・練習のボタンがある（鍵をかけない）", (await page.locator("#surv").count()) === 1 && (await page.locator("#hard").count()) === 1 && (await page.locator("#prac").count()) === 1);
   check("はじめの画面に🔒・「…すると開く」「…のあとで」の鍵の文が無い", !/🔒|すると開く|終えると開く|のあとで/.test(await page.textContent("#screen")), await page.textContent("#screen"));
-  check("ページのどこにも🎫（回数の券）が無い", !/🎫|チケット/.test(html));
-  check("Ko-fi は結果の画面の1行と遊び方の画面の下だけ（ほかの画面・始める前に出さない）", (html.match(/ko-fi\.com\/satouaaaaa/g) || []).length === 2 && (await page.locator("a[href*='ko-fi']").count()) === 0);
+  check("ページのどこにも🎫（回数の券）が無い", !/🎫|チケット/.test(gameOwn(html)));
+  check("Ko-fi は結果の画面の1行と遊び方の画面の下だけ（ほかの画面・始める前に出さない）", (gameOwn(html).match(/ko-fi\.com\/satouaaaaa/g) || []).length === 2 && (await page.locator("a[href*='ko-fi']").count()) === 0);
   { const c0 = await browser.newContext({ viewport: { width: 390, height: 800 } }), p0 = await c0.newPage(); await p0.goto(url);
     await p0.click("#hard"); await p0.waitForTimeout(300);
     check("初めての人でも、上級の5本をすぐ遊べる（今日の5本を待たない）", (await p0.locator("#all").count()) === 0 && /いつも全力/.test(await p0.textContent("#screen")) && /ニュース 1\/5/.test(await p0.textContent(".news small")));
@@ -305,7 +307,7 @@ try {
   { const x = decodeURIComponent((await page.getAttribute("#toX", "href")).split("text=")[1]), ln = decodeURIComponent((await page.getAttribute("#toLine", "href")).split("text=")[1]);
     const names = await page.evaluate(() => window.__kabu.COMPANIES.map((c) => c.n));
     check("X・LINE の投稿画面に結果とURLが入る（答えは入らない）", x === ln && x.startsWith(share.trim().split("\n")[0]) && x.endsWith("https://satou-aaaaa.github.io/kabu-news/") && !names.some((n) => x.includes(n)), x);
-    check("X・LINE は自分で押して開くリンクだけ（勝手に送らない）", /^https:\/\/twitter\.com\/intent\/tweet\?/.test(await page.getAttribute("#toX", "href")) && /^https:\/\/line\.me\/R\/share\?/.test(await page.getAttribute("#toLine", "href"))); }
+    check("X・LINE は自分で押して開くリンクだけ（勝手に送らない）", /^https:\/\/(?:x|twitter)\.com\/intent\/tweet\?/.test(await page.getAttribute("#toX", "href")) && /^https:\/\/line\.me\/R\/share\?/.test(await page.getAttribute("#toLine", "href"))); }
   check("終わりの画面に次の5本までの時間が出る", /^\d+(時間\d+)?分$/.test(await page.textContent("#nextin")));
   check("終わりの画面に連続日数が出る", /1日連続/.test(await page.textContent("#screen")));
 
